@@ -1,15 +1,26 @@
+use lazy_static::lazy_static;
 use serde::{Serialize, Deserialize};
-use tokio_postgres::Config;
+use mongodb::options::{ClientOptions, Credential, ServerAddress};
 
 #[derive(Serialize, Deserialize, Debug)]
-pub enum BrussConfig {
-    #[serde(rename = "db")]
-    Db {
-        host: String,
-        db: String,
-        user: String,
-        password: String,
-    }
+pub struct BrussConfig {
+    pub db: DBConfig,
+    pub tt: TTConfig
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DBConfig {
+    host: String,
+    db: String,
+    user: String,
+    password: String,
+    port: Option<u16>
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TTConfig {
+    secret: String,
+    base_url: String
 }
 
 impl BrussConfig {
@@ -18,18 +29,25 @@ impl BrussConfig {
         let file = std::fs::read_to_string(path).unwrap();
         toml::from_str(&file).unwrap()
     }
+}
 
-    pub fn get_db_configs(&self) -> Config {
-        match self {
-            BrussConfig::Db { db, user, password, host } => {
-                let mut config = Config::new();
-                config.host(host);
-                config.user(user);
-                config.password(password);
-                config.dbname(db);
-                config
-            }
-        }
+impl DBConfig {
+    pub fn gen_mongodb_options(&self) -> ClientOptions {
+        ClientOptions::builder()
+            .hosts(vec![ServerAddress::Tcp { host: self.host.to_string(), port: self.port.clone() }])
+            .credential(Credential::builder()
+                .username(self.user.to_string())
+                .password(self.password.to_string())
+                .build())
+            .build()
+    }
+
+    pub fn get_db(&self) -> &str {
+        &self.db
     }
 }
 
+
+lazy_static! {
+    pub static ref CONFIGS: BrussConfig = BrussConfig::from_file("/home/topongo/fast/documents/uni/internship/bruss/app/api/config.toml");
+}

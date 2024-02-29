@@ -4,6 +4,7 @@ extern crate rocket;
 mod routes;
 mod data;
 mod configs;
+mod utils;
 
 #[get("/")]
 fn welcome_app() -> &'static str {
