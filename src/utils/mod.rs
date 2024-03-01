@@ -1,1 +1,2 @@
-pub mod build_db;
+#![allow(dead_code)]
+pub mod db;

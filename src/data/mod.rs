@@ -2,9 +2,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum AreaType {
-    #[serde(rename = "e")]
+    #[serde(rename(serialize = "e"), alias = "e")]
     E,
-    #[serde(rename = "u")]
+    #[serde(rename(serialize = "u"), alias = "u")]
     U
 }
 

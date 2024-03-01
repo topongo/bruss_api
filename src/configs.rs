@@ -2,6 +2,8 @@ use lazy_static::lazy_static;
 use serde::{Serialize, Deserialize};
 use mongodb::options::{ClientOptions, Credential, ServerAddress};
 
+use crate::tt::TTClient;
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BrussConfig {
     pub db: DBConfig,
@@ -17,11 +19,6 @@ pub struct DBConfig {
     port: Option<u16>
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct TTConfig {
-    secret: String,
-    base_url: String
-}
 
 impl BrussConfig {
     pub fn from_file(path: &str) -> BrussConfig {
@@ -47,6 +44,17 @@ impl DBConfig {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct TTConfig {
+    secret: String,
+    base_url: String
+}
+
+impl TTConfig {
+    pub fn client(&self) -> TTClient {
+        TTClient::new(self.base_url.clone(), self.secret.clone())
+    }
+}
 
 lazy_static! {
     pub static ref CONFIGS: BrussConfig = BrussConfig::from_file("/home/topongo/fast/documents/uni/internship/bruss/app/api/config.toml");
