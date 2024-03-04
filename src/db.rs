@@ -1,5 +1,6 @@
 use crate::configs::CONFIGS;
 use crate::data::Area;
+use crate::tt::ToBruss;
 use rocket::{fairing::{self, AdHoc}, Build, Rocket};
 use rocket_db_pools::Database;
 use mongodb::{Client,bson::doc};
@@ -31,13 +32,22 @@ async fn migrate(rocket: Rocket<Build>) -> fairing::Result {
                 Ok(tt_areas) => {
                     let mut areas = Vec::new();
                     for a in tt_areas {
-                        areas.push(a.to_area());
+                        areas.push(a.to_bruss());
                     }
                     if let Err(e) = areas_c.insert_many(areas, None).await {
                         return db_migrate_fail(rocket, &e, None)
                     }
                 }
-                Err(e) => return db_migrate_fail(rocket, &e, Some("Error while retrieving areas from TT: {:?}"))
+                Err(e) => return db_migrate_fail(rocket, &e, Some("Error while retrieving areas from TT"))
+            }
+            match tt.get_routes().await {
+                Ok(tt_routes) => {
+                    let mut routes = Vec::new();
+                    for r in tt_routes {
+                        routes.push(r.to_bruss());
+                    }
+                }
+                Err(e) => return db_migrate_fail(rocket, &e, Some("Error while retrieving routes from TT"))
             }
         }
         None => panic!("misconfigured database, this behavior is wrong at compile time.") 

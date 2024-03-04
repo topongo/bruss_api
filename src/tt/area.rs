@@ -2,19 +2,23 @@ use serde::Deserialize;
 
 use crate::data::{Area, AreaType};
 
+use super::ToBruss;
+
 #[derive(Deserialize, Debug)]
 pub struct TTArea {
     #[serde(rename = "areaId")]
     id: u16,
     #[serde(rename = "areaDesc")]
-    desc: String,
+    label: String,
     #[serde(rename = "type")]
     ty: AreaType,
 }
 
-impl TTArea {
-    pub fn to_area(self) -> Area {
-        Area { id: self.id, label: self.desc, ty: self.ty }
+impl ToBruss for TTArea {
+    type Output = Area;
+
+    fn to_bruss(self) -> Self::Output {
+        Area::new(self.id, self.label, self.ty)
     }
 }
 

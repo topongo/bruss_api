@@ -1,5 +1,6 @@
-use super::{TTArea,TTError};
-use reqwest::{Client, RequestBuilder};
+use super::{route::TTRoute, TTArea, TTError, TTResult, ToBruss};
+use reqwest::{Client, Request, RequestBuilder};
+use serde::{de::DeserializeOwned, Deserialize};
 
 pub struct TTClient {
     base_url: String,
@@ -18,13 +19,23 @@ impl TTClient {
             .header("authorization", format!("Basic {}", self.secret))
     }
 
-    pub async fn get_areas(&self) -> Result<Vec<TTArea>, TTError> {
-        self.auth_req("areas")
+    async fn get_data<T>(&self, r: RequestBuilder) -> TTResult<Vec<T>> where T: ToBruss + DeserializeOwned {
+        r
+        // Ok(r
             .send()
             .await?
-            .json::<Vec<TTArea>>()
+            .json::<Vec<T>>()
             .await
+            // .unwrap())
             .map_err(TTError::from)
-    }        
+    }
+
+    pub async fn get_areas(&self) -> TTResult<Vec<TTArea>> {
+        self.get_data(self.auth_req("areas")).await
+    }
+
+    pub async fn get_routes(&self) -> TTResult<Vec<TTRoute>> {
+        self.get_data(self.auth_req("routes")).await
+    }
 }
 

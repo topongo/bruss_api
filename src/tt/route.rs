@@ -1,5 +1,9 @@
 use serde::{Serialize,Deserialize,Deserializer};
 
+use crate::data::Route;
+
+use super::ToBruss;
+
 #[derive(Serialize,Deserialize,Debug)]
 pub struct TTRoute {
     #[serde(alias="routeId")]
@@ -21,5 +25,13 @@ fn parse_color<'de, D>(d: D) -> Result<String, D::Error> where D: Deserializer<'
         .map(|x: Option<_>| {
             x.unwrap_or("CCCCCC".to_string())
         })
+}
+
+impl ToBruss for TTRoute {
+    type Output = Route;
+
+    fn to_bruss(self) -> Self::Output {
+       Route {} 
+    }
 }
 
