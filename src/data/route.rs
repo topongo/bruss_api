@@ -9,7 +9,7 @@ pub struct Route {
     color: String,
     name: String,
     code: String,
-    #[serde(rename(serialize = "type"))]
+    #[serde(rename = "type")]
     ty: u16
 }
 

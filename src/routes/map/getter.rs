@@ -23,7 +23,10 @@ impl<T> From<Result<T, mongodb::error::Error>> for GetResponse<T> {
             Ok(v) => GetResponse::Ok {
                 inner: (Status::Ok, Json(v)),
             },
-            Err(_) => GetResponse::DBError("error fetching data".to_string()),
+            Err(e) => {
+                error!("Internal Server Error: {:?}", e);
+                GetResponse::DBError("error fetching data".to_owned())
+            },
         }
     }
 } 

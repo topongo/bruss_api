@@ -5,7 +5,7 @@ use super::{AreaType, BrussType};
 pub struct Area {
     pub id: u16,
     pub label: String,
-    #[serde(rename(serialize = "type"))]
+    #[serde(rename = "type")]
     pub ty: AreaType
 }
 
