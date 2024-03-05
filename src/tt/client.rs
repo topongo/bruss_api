@@ -1,4 +1,6 @@
-use super::{route::TTRoute, TTArea, TTError, TTResult, ToBruss};
+use crate::configs::CONFIGS;
+use crate::data::ToBruss;
+use super::{route::TTRoute, TTArea, TTError, TTResult};
 use reqwest::{Client, Request, RequestBuilder};
 use serde::{de::DeserializeOwned, Deserialize};
 
@@ -37,5 +39,53 @@ impl TTClient {
     pub async fn get_routes(&self) -> TTResult<Vec<TTRoute>> {
         self.get_data(self.auth_req("routes")).await
     }
+}
+
+#[tokio::test]
+async fn auth_test() {
+    use crate::configs::CONFIGS;
+
+    let tt = CONFIGS.tt.client();
+    let response = tt.auth_req("areas")
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+}
+
+#[tokio::test]
+async fn areas_parse_test() {
+    use crate::configs::CONFIGS;
+
+    let tt = CONFIGS.tt.client();
+    let areas: Vec<TTArea> = tt
+        .auth_req("areas")
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(areas.len() > 0);
+}
+
+#[tokio::test]
+async fn routes_parse_test() {
+    use crate::configs::CONFIGS;
+   
+    let tt = CONFIGS.tt.client();
+    let routes: Vec<TTRoute> = tt
+        .auth_req("routes")
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert!(routes.len() > 0);
+}
+
+#[test]
+fn auth_req_test() {
 }
 

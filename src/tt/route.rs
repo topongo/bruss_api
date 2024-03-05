@@ -1,8 +1,8 @@
 use serde::{Serialize,Deserialize,Deserializer};
 
 use crate::data::Route;
+use crate::data::ToBruss;
 
-use super::ToBruss;
 
 #[derive(Serialize,Deserialize,Debug)]
 pub struct TTRoute {
@@ -31,7 +31,8 @@ impl ToBruss for TTRoute {
     type Output = Route;
 
     fn to_bruss(self) -> Self::Output {
-       Route {} 
+        let TTRoute { id, area, ty, name, code, color } = self;
+        Route::new(id, area, color, name, code, ty)
     }
 }
 

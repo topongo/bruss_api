@@ -19,12 +19,32 @@ pub struct DBConfig {
     port: Option<u16>
 }
 
+#[derive(Debug)]
+enum ParseError {
+    IO(std::io::Error),
+    Decode(toml::de::Error)
+}
+
+impl From<std::io::Error> for ParseError {
+    fn from(value: std::io::Error) -> Self {
+        ParseError::IO(value)
+    }
+}
+
+impl From<toml::de::Error> for ParseError {
+    fn from(value: toml::de::Error) -> Self {
+        ParseError::Decode(value)
+    }
+}
 
 impl BrussConfig {
-    pub fn from_file(path: &str) -> BrussConfig {
+    pub fn from_file(path: &str) -> Result<BrussConfig, ParseError> {
         // print pwd
-        let file = std::fs::read_to_string(path).unwrap();
-        toml::from_str(&file).unwrap()
+        let file = std::fs::read_to_string(path)?;
+        match toml::from_str(&file) {
+            Ok(x) => Ok(x),
+            Err(y) => Err(ParseError::Decode(y))
+        }
     }
 }
 
@@ -57,5 +77,5 @@ impl TTConfig {
 }
 
 lazy_static! {
-    pub static ref CONFIGS: BrussConfig = BrussConfig::from_file("/home/topongo/fast/documents/uni/internship/bruss/app/api/config.toml");
+    pub static ref CONFIGS: BrussConfig = BrussConfig::from_file("/home/topongo/fast/documents/uni/internship/bruss/app/api/config.toml").expect("cannot load static configs");
 }

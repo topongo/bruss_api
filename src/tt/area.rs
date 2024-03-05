@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 use crate::data::{Area, AreaType};
 
-use super::ToBruss;
+use crate::data::ToBruss;
 
 #[derive(Deserialize, Debug)]
 pub struct TTArea {
