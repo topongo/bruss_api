@@ -1,9 +1,12 @@
 use crate::configs::CONFIGS;
-use crate::data::{Area,Route,ToBruss};
+use crate::data::{Area, Route, Stop, ToBruss};
 use rocket::{fairing::{self, AdHoc}, Build, Rocket};
 use rocket_db_pools::Database;
 use mongodb::{Client,bson::doc};
+use tokio::join;
+use tokio::time::sleep;
 use std::error::Error;
+use std::time::Duration;
 
 #[derive(Database)]
 #[database("bruss")]
@@ -24,29 +27,87 @@ async fn migrate(rocket: Rocket<Build>) -> fairing::Result {
             info!("connecting to collections");
             let areas_c = db.database(CONFIGS.db.get_db()).collection::<Area>("areas");
             let routes_c = db.database(CONFIGS.db.get_db()).collection::<Route>("routes");
-
-            info!("deleting old data from collections");
-            if let Err(e) = areas_c.delete_many(doc! { }, None).await {
-                return db_migrate_fail(rocket, &e, Some("cannot clean areas collection"))
-            }
-            if let Err(e) = routes_c.delete_many(doc! { }, None).await {
-                return db_migrate_fail(rocket, &e, Some("cannot clean routes collection"))
-            }
+            let stops_c = db.database(CONFIGS.db.get_db()).collection::<Stop>("stops");
+             
+            // info!("deleting old data from collections");
+            // if let Err(e) = areas_c.delete_many(doc! { }, None).await {
+            //     return db_migrate_fail(rocket, &e, Some("cannot clean areas collection"))
+            // }
+            // if let Err(e) = routes_c.delete_many(doc! { }, None).await {
+            //     return db_migrate_fail(rocket, &e, Some("cannot clean routes collection"))
+            // }
             info!("creating tt client");
             let tt = CONFIGS.tt.client();
-            info!("retrieving areas data");
-            match tt.get_areas().await {
-                Ok(tt_areas) => {
-                    let mut areas = Vec::new();
-                    for a in tt_areas {
-                        areas.push(a.to_bruss());
+            
+            let (areas_r, routes_r, stops_r): (Option<fairing::Result>, Option<fairing::Result>, Option::<fairing::Result>)  = join!(
+                async {
+                    match areas_c.count_documents(doc!{},None).await {
+                        Ok(n) => if n > 0 {
+                            info!("retrieving areas data...");
+                            match tt.get_areas().await {
+                                Ok(tt_areas) => {
+                                    let mut areas = Vec::new();
+                                    for a in tt_areas {
+                                        areas.push(a.to_bruss());
+                                    }
+                                    if let Err(e) = areas_c.insert_many(areas, None).await {
+                                        Some(db_migrate_fail(rocket, &e, None))
+                                    } else {
+                                        None
+                                    }
+                                }
+                                Err(e) => Some(db_migrate_fail(rocket, &e, Some("Error while retrieving areas from TT")))
+                            }
+                        } else { None },
+                        Err(e) => Some(db_migrate_fail(rocket, &e, Some("cannot count areas documents"))),
+                    } 
+                },
+                async {
+                    match areas_c.count_documents(doc!{},None).await {
+                        Ok(n) => if n > 0 {
+                            info!("retrieving areas data...");
+                            match tt.get_areas().await {
+                                Ok(tt_areas) => {
+                                    let mut areas = Vec::new();
+                                    for a in tt_areas {
+                                        areas.push(a.to_bruss());
+                                    }
+                                    if let Err(e) = areas_c.insert_many(areas, None).await {
+                                        Some(db_migrate_fail(rocket, &e, None))
+                                    } else {
+                                        None
+                                    }
+                                }
+                                Err(e) => Some(db_migrate_fail(rocket, &e, Some("Error while retrieving areas from TT")))
+                            }
+                        } else { None },
+                        Err(e) => Some(db_migrate_fail(rocket, &e, Some("cannot count areas documents"))),
                     }
-                    if let Err(e) = areas_c.insert_many(areas, None).await {
-                        return db_migrate_fail(rocket, &e, None)
+                },
+                async {
+                    match areas_c.count_documents(doc!{},None).await {
+                        Ok(n) => if n > 0 {
+                            info!("retrieving areas data...");
+                            match tt.get_areas().await {
+                                Ok(tt_areas) => {
+                                    let mut areas = Vec::new();
+                                    for a in tt_areas {
+                                        areas.push(a.to_bruss());
+                                    }
+                                    if let Err(e) = areas_c.insert_many(areas, None).await {
+                                        Some(db_migrate_fail(rocket, &e, None))
+                                    } else {
+                                        None
+                                    }
+                                }
+                                Err(e) => Some(db_migrate_fail(rocket, &e, Some("Error while retrieving areas from TT")))
+                            }
+                        } else { None },
+                        Err(e) => Some(db_migrate_fail(rocket, &e, Some("cannot count areas documents"))),
                     }
-                }
-                Err(e) => return db_migrate_fail(rocket, &e, Some("Error while retrieving areas from TT"))
-            }
+                });
+            // if areas_c.count_documents(doc! {}, None).await
+            
             info!("retrieving routes data");
             match tt.get_routes().await {
                 Ok(tt_routes) => {
@@ -60,6 +121,20 @@ async fn migrate(rocket: Rocket<Build>) -> fairing::Result {
                     }
                 }
                 Err(e) => return db_migrate_fail(rocket, &e, Some("Error while retrieving routes from TT"))
+            }
+            info!("retrieving routes data");
+            match tt.get_stops().await {
+                Ok(tt_stops) => {
+                    info!("loading stops into db...");
+                    let mut stops = Vec::new();
+                    for r in tt_stops {
+                        stops.push(r.to_bruss());
+                    }
+                    if let Err(e) = stops_c.insert_many(stops, None).await {
+                        return db_migrate_fail(rocket, &e, None)
+                    }
+                }
+                Err(e) => return db_migrate_fail(rocket, &e, Some("Error while retrieving stops from TT"))
             }
             info!("database setup done!")
         }

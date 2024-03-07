@@ -1,11 +1,16 @@
 mod area;
 mod area_type;
 mod route;
+mod position;
+mod stop;
 
 pub use area::Area;
 pub use area_type::AreaType;
 pub use route::Route;
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+pub use stop::Stop;
+pub use position::Position;
+
+use serde::{de::DeserializeOwned, Serialize};
 
 pub(crate) trait BrussType: Serialize + DeserializeOwned {
     const DB_NAME: &'static str;

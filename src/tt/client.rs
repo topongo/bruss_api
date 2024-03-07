@@ -1,6 +1,6 @@
 use crate::configs::CONFIGS;
 use crate::data::ToBruss;
-use super::{route::TTRoute, TTArea, TTError, TTResult};
+use super::{route::TTRoute, stop::TTStop, TTArea, TTError, TTResult};
 use reqwest::{Client, Request, RequestBuilder};
 use serde::{de::DeserializeOwned, Deserialize};
 
@@ -38,6 +38,10 @@ impl TTClient {
 
     pub async fn get_routes(&self) -> TTResult<Vec<TTRoute>> {
         self.get_data(self.auth_req("routes")).await
+    }
+
+    pub async fn get_stops(&self) -> TTResult<Vec<TTStop>> {
+        self.get_data(self.auth_req("stops")).await
     }
 }
 

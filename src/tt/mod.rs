@@ -2,6 +2,7 @@ mod area;
 mod client;
 mod error;
 mod route;
+mod stop;
 
 pub use area::TTArea;
 pub use client::TTClient;
