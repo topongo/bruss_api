@@ -5,7 +5,7 @@ mod route;
 mod stop;
 
 pub use area::TTArea;
-pub use client::TTClient;
+pub use client::{TTClient,VecEndpoint};
 pub use error::TTError;
 
 
