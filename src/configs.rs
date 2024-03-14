@@ -2,7 +2,7 @@ use lazy_static::lazy_static;
 use serde::{Serialize, Deserialize};
 use mongodb::options::{ClientOptions, Credential, ServerAddress};
 
-use crate::tt::TTClient;
+use tt::TTClient;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct BrussConfig {

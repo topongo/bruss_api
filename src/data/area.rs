@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
-use super::{AreaType, BrussType};
+use tt::{TTArea,AreaType};
+use super::{BrussType, FromTT};
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Area {
@@ -18,3 +19,11 @@ impl Area {
 impl BrussType for Area {
     const DB_NAME: &'static str = "areas";
 }
+
+impl FromTT<TTArea> for Area {
+    fn from_tt(value: TTArea) -> Self {
+        let TTArea { id, label, ty } = value;
+        Self { id, label, ty }
+    }
+}
+

@@ -1,7 +1,8 @@
 use serde::{Serialize,Deserialize};
+use tt::{TTStop,AreaType};
 
-use super::AreaType;
 use super::BrussType;
+use super::FromTT;
 use super::Position;
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -28,3 +29,11 @@ impl Stop {
 impl BrussType for Stop {
     const DB_NAME: &'static str = "stops";
 }
+
+impl FromTT<TTStop> for Stop {
+    fn from_tt(value: TTStop) -> Self {
+        let TTStop { id, code, description, lat, lng, altitude, name, street, town, ty, wheelchair_boarding } = value;
+        Self { id, code, description, position: Position::new(lat, lng), altitude, name, street, town, ty, wheelchair_boarding }
+    }
+}
+

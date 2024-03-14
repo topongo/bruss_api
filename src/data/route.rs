@@ -1,6 +1,7 @@
 use serde::{Serialize,Deserialize};
+use tt::TTRoute;
 
-use super::BrussType;
+use super::{BrussType, FromTT};
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Route {
@@ -22,3 +23,11 @@ impl Route {
 impl BrussType for Route {
     const DB_NAME: &'static str = "routes";
 }
+
+impl FromTT<TTRoute> for Route {
+    fn from_tt(value: TTRoute) -> Self {
+        let TTRoute { id, ty, area, color, name, code } = value;
+        Self { id, ty, area, color, name, code }
+    }
+}
+

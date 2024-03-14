@@ -9,7 +9,6 @@ mod data;
 mod configs;
 mod utils;
 mod db;
-mod tt;
 
 #[get("/")]
 fn welcome_app() -> &'static str {
