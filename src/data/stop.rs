@@ -13,15 +13,15 @@ pub struct Stop {
     position: Position,
     altitude: i32,
     name: String,
-    street: String,
-    town: String,
+    street: Option<String>,
+    town: Option<String>,
     #[serde(rename = "type")]
     ty: AreaType,
     wheelchair_boarding: bool
 }
 
 impl Stop {
-    pub fn new(id: u16, code: String, description: String, position: Position, altitude: i32, name: String, street: String, town: String, ty: AreaType, wheelchair_boarding: bool) -> Self {
+    pub fn new(id: u16, code: String, description: String, position: Position, altitude: i32, name: String, street: Option<String>, town: Option<String>, ty: AreaType, wheelchair_boarding: bool) -> Self {
         Self { id, code, description, position, altitude, name, street, town, ty, wheelchair_boarding }
     }
 }

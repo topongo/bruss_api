@@ -1,6 +1,6 @@
 use crate::configs::CONFIGS;
 use crate::data::{Area, FromTT, Route, Stop};
-use tt::{TTArea, TTClient, TTRoute, TTStop, TTType, VecEndpoint};
+use tt::{TTArea, TTClient, TTEndpoint, TTRoute, TTStop, TTType};
 use mongodb::Collection;
 use rocket::{fairing::{self, AdHoc}, Build, Rocket};
 use rocket_db_pools::Database;
@@ -38,14 +38,12 @@ pub struct BrussData(Client);
 type FetchResult = Option<(Box<dyn Error>, Option<&'static str>)>;
 
 async fn fetch_all_insert<I, O>(coll: Collection<O>) -> FetchResult 
-    where O: FromTT<I> + Serialize, I: TTType, TTClient: VecEndpoint<I>
+    where O: FromTT<I> + Serialize, I: TTEndpoint
 {
     match coll.count_documents(doc!{}, None).await {
-        Ok(n) => if n > 0 {
+        Ok(n) => if n == 0 {
             info!("retrieving {} data...", coll.name());
-            // compiler needs all this junk...
-            let res = <TTClient as VecEndpoint<I>>::request(&CONFIGS.tt.client()).await;
-            match res {
+            match CONFIGS.tt.client().request().await {
                 Ok(tt_data) => {
                     let mut data: Vec<O> = Vec::new();
                     for d in tt_data {
@@ -57,7 +55,7 @@ async fn fetch_all_insert<I, O>(coll: Collection<O>) -> FetchResult
                         None
                     }
                 }
-                Err(e) => Some((Box::new(e) as Box<dyn Error>, Some("cannot count documents")))
+                Err(e) => Some((Box::new(e) as Box<dyn Error>, Some("request error")))
             } 
         } else { None }
         Err(e) => Some((Box::new(e) as Box<dyn Error>, Some("cannot count documents")))
