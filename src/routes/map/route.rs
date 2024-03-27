@@ -1,4 +1,4 @@
-use crate::data::Route;
+use bruss_data::Route;
 use crate::db::BrussData;
 use mongodb::bson::Document;
 use rocket_db_pools::Connection;

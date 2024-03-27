@@ -16,4 +16,6 @@ tokio = "1.36"
 toml = "0.8.10"
 futures = "0.3.30"
 lazy_static = "1.4.0"
-tt = { path = "../tt" }
+bruss_config = { path = "../../config" }
+bruss_data = { path = "../../data" }
+tt = { path = "../../tt" }

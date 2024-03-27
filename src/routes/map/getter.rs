@@ -3,8 +3,8 @@ use rocket::serde::json::Json;
 use rocket::http::Status;
 use mongodb::bson::Document;
 use rocket_db_pools::Connection;
-use crate::configs::CONFIGS;
-use crate::data::BrussType;
+use bruss_config::CONFIGS;
+use bruss_data::BrussType;
 use crate::db::BrussData;
 
 #[derive(Responder)]

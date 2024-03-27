@@ -1,4 +1,5 @@
-use crate::{data::Area, db::BrussData};
+use bruss_data::Area;
+use crate::db::BrussData;
 use super::getter::{GetResponse, GetterQuery, get};
 use mongodb::bson::Document;
 use rocket_db_pools::Connection;

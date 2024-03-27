@@ -1,5 +1,5 @@
-use crate::configs::CONFIGS;
-use crate::data::{Area, FromTT, Route, Stop};
+use bruss_config::CONFIGS;
+use bruss_data::{Area, FromTT, Route, Stop};
 use tt::{TTArea, TTClient, TTEndpoint, TTRoute, TTStop, TTType};
 use mongodb::Collection;
 use rocket::{fairing::{self, AdHoc}, Build, Rocket};

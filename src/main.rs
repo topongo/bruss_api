@@ -5,9 +5,6 @@ extern crate rocket;
 use crate::db::db_init;
 
 mod routes;
-mod data;
-mod configs;
-mod utils;
 mod db;
 
 #[get("/")]
