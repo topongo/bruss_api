@@ -11,29 +11,6 @@ use std::error::Error;
 #[derive(Database)]
 #[database("bruss")]
 pub struct BrussData(Client);
-//
-// async {
-//     match areas_c.count_documents(doc!{},None).await {
-//         Ok(n) => if n > 0 {
-//             info!("retrieving areas data...");
-//             match tt.get_areas().await {
-//                 Ok(tt_areas) => {
-//                     let mut areas = Vec::new();
-//                     for a in tt_areas {
-//                         areas.push(a.to_bruss());
-//                     }
-//                     if let Err(e) = areas_c.insert_many(areas, None).await {
-//                         Some((Box::new(e) as Box<dyn Error>, None))
-//                     } else {
-//                         None
-//                     }
-//                 }
-//                 Err(e) => Some((Box::new(e) as Box<dyn Error>, Some("Error while retrieving areas from TT")))
-//             }
-//         } else { None },
-//         Err(e) => Some((Box::new(e) as Box<dyn Error>, Some("cannot count areas documents"))),
-//     } 
-// }
 
 type FetchResult = Option<(Box<dyn Error>, Option<&'static str>)>;
 
