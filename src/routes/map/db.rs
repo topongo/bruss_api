@@ -8,7 +8,7 @@ use bruss_data::BrussType;
 use crate::db::BrussData;
 
 #[derive(Responder)]
-pub enum GetResponse<T> {
+pub enum DBResponse<T> {
     #[response(status = 200)]
     Ok { inner: (Status, Json<T>) },
     #[response(status = 500, content_type = "json")]
@@ -17,26 +17,41 @@ pub enum GetResponse<T> {
     DBError(String),
 }
 
-impl<T> From<Result<T, mongodb::error::Error>> for GetResponse<T> {
+impl<T> From<Result<T, mongodb::error::Error>> for DBResponse<T> {
     fn from(value: Result<T, mongodb::error::Error>) -> Self {
         match value {
-            Ok(v) => GetResponse::Ok {
+            Ok(v) => DBResponse::Ok {
                 inner: (Status::Ok, Json(v)),
             },
             Err(e) => {
                 error!("Internal Server Error: {:?}", e);
-                GetResponse::DBError("error fetching data".to_owned())
+                DBResponse::DBError("error fetching data".to_owned())
             },
         }
     }
 } 
 
-pub trait GetterQuery {
-    fn to_doc(self) -> Document;
+pub trait DBQuery {
+    fn to_doc(&self) -> Document;
 }
 
-pub async fn get<Q, T>(db: Connection<BrussData>, query: Q) -> GetResponse<Vec<T>>
-    where T: BrussType, Q: GetterQuery
+pub async fn db_query_get<T, Q>(db: Connection<BrussData>, query: Q) -> DBResponse<Vec<T>>
+    where T: BrussType, Q: DBQuery 
+{
+    info!("using collection: {}", T::DB_NAME);
+    match db
+        .database(CONFIGS.db.get_db())
+        .collection::<T>(T::DB_NAME)
+        .find(query.to_doc(), None)
+        .await
+    {
+        Ok(found) => found.try_collect::<Vec<T>>().await.into(),
+        Err(e) => DBResponse::DBError(e.to_string())
+    }
+}
+
+pub async fn db_query_json<T, Q>(db: Connection<BrussData>, query: Json<Q>) -> DBResponse<Vec<T>>
+    where T: BrussType, Q: DBQuery
 {
     match db
         .database(CONFIGS.db.get_db())
@@ -45,7 +60,7 @@ pub async fn get<Q, T>(db: Connection<BrussData>, query: Q) -> GetResponse<Vec<T
         .await
     {
         Ok(found) => found.try_collect::<Vec<T>>().await.into(),
-        Err(e) => GetResponse::DBError(e.to_string())
+        Err(e) => DBResponse::DBError(e.to_string())
     }
 }
 

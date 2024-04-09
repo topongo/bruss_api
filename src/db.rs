@@ -77,7 +77,7 @@ async fn migrate(rocket: Rocket<Build>) -> fairing::Result {
 pub fn db_init() -> AdHoc {
     AdHoc::on_ignite("Database connect", |rocket| async {
         rocket.attach(BrussData::init())
-            .attach(AdHoc::try_on_ignite("Database migrate", migrate))
+            // .attach(AdHoc::try_on_ignite("Database migrate", migrate))
     })
 }
 
