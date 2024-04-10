@@ -38,31 +38,25 @@ pub trait DBQuery {
 pub async fn db_query_get<T, Q>(db: Connection<BrussData>, query: Q) -> DBResponse<Vec<T>>
     where T: BrussType, Q: DBQuery 
 {
-    info!("using collection: {}", T::DB_NAME);
-    match db
-        .database(CONFIGS.db.get_db())
-        .collection::<T>(T::DB_NAME)
-        .find(query.to_doc(), None)
-        .await
-    {
-        Ok(found) => found.try_collect::<Vec<T>>().await.into(),
-        Err(e) => DBResponse::DBError(e.to_string())
-    }
+    db_query_doc(db, query.to_doc()).await
 }
 
 pub async fn db_query_json<T, Q>(db: Connection<BrussData>, query: Json<Q>) -> DBResponse<Vec<T>>
     where T: BrussType, Q: DBQuery
 {
-    match db
-        .database(CONFIGS.db.get_db())
-        .collection::<T>(T::DB_NAME)
-        .find(query.to_doc(), None)
+    db_query_doc(db, query.to_doc()).await
+}
+
+pub async fn db_query_doc<T>(db: Connection<BrussData>, query: Document) -> DBResponse<Vec<T>>
+    where T: BrussType
+{
+    match T::get_coll(&db.database(CONFIGS.db.get_db()))
+        .find(query, None)
         .await
     {
         Ok(found) => found.try_collect::<Vec<T>>().await.into(),
         Err(e) => DBResponse::DBError(e.to_string())
     }
 }
-
 
 

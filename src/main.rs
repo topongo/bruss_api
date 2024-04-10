@@ -28,6 +28,9 @@ fn rocket() -> _ {
             routes::map::get_routes,
             routes::map::get_segments,
             routes::map::get_stops,
+            routes::map::get_trips_route,
+            routes::map::get_trips_stop,
+            routes::map::get_path,
         ])
         .mount("/api/v1/tracking/", routes![
         ])
