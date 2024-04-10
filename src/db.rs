@@ -5,4 +5,3 @@ use mongodb::Client;
 #[database("bruss")]
 pub struct BrussData(Client);
 
-
