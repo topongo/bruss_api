@@ -2,7 +2,9 @@
 #[macro_use] 
 extern crate rocket;
 
-use crate::db::db_init;
+use rocket::fairing::AdHoc;
+use crate::db::BrussData;
+use rocket_db_pools::Database;
 
 mod routes;
 mod db;
@@ -24,8 +26,13 @@ fn rocket() -> _ {
         .mount("/api/v1/map/", routes![
             routes::map::get_areas,
             routes::map::get_routes,
+            routes::map::get_segments,
+            routes::map::get_stops,
         ])
         .mount("/api/v1/tracking/", routes![
         ])
-        .attach(db_init())
+        .attach(AdHoc::on_ignite("Database connect", |rocket| async {
+            rocket.attach(BrussData::init())
+            // .attach(AdHoc::try_on_ignite("Database migrate", migrate))
+        }))
 }
