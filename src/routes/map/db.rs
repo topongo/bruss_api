@@ -1,3 +1,6 @@
+use std::convert::Infallible;
+use std::ops::FromResidual;
+
 use futures::TryStreamExt;
 use rocket::serde::json::Json;
 use rocket::http::Status;
@@ -30,6 +33,15 @@ impl<T> From<Result<T, mongodb::error::Error>> for DBResponse<T> {
         }
     }
 } 
+
+impl<T> FromResidual<Result<Infallible, mongodb::error::Error>> for DBResponse<T> {
+    fn from_residual(residual: Result<Infallible, mongodb::error::Error>) -> Self {
+        match residual {
+            Ok(inf) => panic!(),
+            Err(err) => DBResponse::DBError(err.to_string())
+        }
+    }
+}
 
 pub trait DBQuery {
     fn to_doc(&self) -> Document;

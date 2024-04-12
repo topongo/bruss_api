@@ -8,6 +8,8 @@ use rocket_db_pools::Database;
 
 mod routes;
 mod db;
+mod cors;
+
 
 #[get("/")]
 fn welcome_app() -> &'static str {
@@ -27,10 +29,12 @@ fn rocket() -> _ {
             routes::map::get_areas,
             routes::map::get_routes,
             routes::map::get_segments,
+            routes::map::get_segments_poly,
             routes::map::get_stops,
             routes::map::get_trips_route,
             routes::map::get_trips_stop,
             routes::map::get_path,
+            routes::options,
         ])
         .mount("/api/v1/tracking/", routes![
         ])
@@ -38,4 +42,5 @@ fn rocket() -> _ {
             rocket.attach(BrussData::init())
             // .attach(AdHoc::try_on_ignite("Database migrate", migrate))
         }))
+        .attach(cors::CORS)
 }
