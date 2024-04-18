@@ -8,13 +8,13 @@ use super::db::{db_query_json, DBResponse, DBQuery};
 use serde::{Serialize,Deserialize};
 use futures::stream::TryStreamExt;
 
-#[derive(FromFormField,Deserialize)]
-enum FormatSelect {
-    #[field(value = "poly")]
-    Polyline,
-    #[field(value = "coords")]
-    Coords,
-}
+// #[derive(FromFormField,Deserialize)]
+// enum FormatSelect {
+//     #[field(value = "poly")]
+//     Polyline,
+//     #[field(value = "coords")]
+//     Coords,
+// }
 
 // #[derive(Serialize,Deserialize)]
 #[derive(FromForm,Deserialize)]
@@ -22,13 +22,13 @@ pub struct SegmentQuery {
     stops: Option<Vec<(u16, u16)>>,
     #[field(name = "type")]
     ty: Option<u16>,
-    format: Option<FormatSelect>,
+    // format: Option<FormatSelect>,
 }
 
 impl DBQuery for SegmentQuery {
     fn to_doc(&self) -> Document {
         let mut d = Document::new();
-        let Self { ty, stops, format } = self;
+        let Self { ty, stops } = self;
 
         match stops {
             Some(stops) => if stops.len() > 0 {

@@ -9,6 +9,20 @@ use rocket_db_pools::Connection;
 use bruss_config::CONFIGS;
 use bruss_data::BrussType;
 use crate::db::BrussData;
+use mongodb::error::{Error as MongoError, ErrorKind};
+use serde::Serialize;
+
+#[derive(Serialize)]
+struct DBError {
+    // kind: ErrorKind,
+    message: String
+}
+
+impl From<MongoError> for DBError {
+    fn from(value: MongoError) -> Self {
+        DBError { message: value.to_string(), /* kind: value.kind */ }
+    }
+}
 
 #[derive(Responder)]
 pub enum DBResponse<T> {
@@ -16,8 +30,10 @@ pub enum DBResponse<T> {
     Ok { inner: (Status, Json<T>) },
     // #[response(status = 500, content_type = "json")]
     // SerializationError(String),
-    #[response(status = 500)]
-    DBError(String),
+    #[response(status = 500, content_type = "json")]
+    DBError {
+        inner: Json<DBError>
+    }
 }
 
 impl<T> From<Result<T, mongodb::error::Error>> for DBResponse<T> {
@@ -28,7 +44,7 @@ impl<T> From<Result<T, mongodb::error::Error>> for DBResponse<T> {
             },
             Err(e) => {
                 error!("Internal Server Error: {:?}", e);
-                DBResponse::DBError("error fetching data".to_owned())
+                DBResponse::DBError { inner: Json(e.into()) }
             },
         }
     }
@@ -37,8 +53,8 @@ impl<T> From<Result<T, mongodb::error::Error>> for DBResponse<T> {
 impl<T> FromResidual<Result<Infallible, mongodb::error::Error>> for DBResponse<T> {
     fn from_residual(residual: Result<Infallible, mongodb::error::Error>) -> Self {
         match residual {
-            Ok(inf) => panic!(),
-            Err(err) => DBResponse::DBError(err.to_string())
+            Ok(_inf) => panic!(),
+            Err(err) => DBResponse::DBError { inner: Json(err.into()) }
         }
     }
 }
@@ -67,7 +83,7 @@ pub async fn db_query_doc<T>(db: Connection<BrussData>, query: Document) -> DBRe
         .await
     {
         Ok(found) => found.try_collect::<Vec<T>>().await.into(),
-        Err(e) => DBResponse::DBError(e.to_string())
+        Err(e) => DBResponse::DBError { inner: Json(e.into()) }
     }
 }
 
