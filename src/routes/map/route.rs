@@ -8,15 +8,17 @@ use super::db::{db_query_get, DBQuery, DBResponse};
 pub struct RouteQuery {
     id: Option<u16>,
     #[field(name = "type")]
-    ty: Option<u16>
+    ty: Option<u16>,
+    area: Option<u16>,
 }
 
 impl DBQuery for RouteQuery {
     fn to_doc(&self) -> Document {
         let mut d = Document::new();
-        let RouteQuery { id, ty } = self;
+        let RouteQuery { id, ty, area } = self;
         if let Some(id) = id { d.insert("id", *id as i32); }
         if let Some(ty) = ty { d.insert("type", *ty as i32); }
+        if let Some(area) = area { d.insert("area", *area as i32); }
         d
     }
 }

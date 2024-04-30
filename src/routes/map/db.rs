@@ -30,6 +30,10 @@ pub enum DBResponse<T> {
     Ok { inner: (Status, Json<T>) },
     // #[response(status = 500, content_type = "json")]
     // SerializationError(String),
+    #[response(status = 404, content_type = "json")]
+    NotFound {
+        inner: (Status, Json<Option<String>>)
+    },
     #[response(status = 500, content_type = "json")]
     DBError {
         inner: Json<DBError>
@@ -48,7 +52,16 @@ impl<T> From<Result<T, mongodb::error::Error>> for DBResponse<T> {
             },
         }
     }
-} 
+}
+
+impl<T> From<Option<T>> for DBResponse<T> {
+    fn from(value: Option<T>) -> Self {
+        match value {
+            Some(v) => DBResponse::Ok { inner: (Status::Ok, Json(v)) },
+            None => DBResponse::NotFound { inner: (Status::NotFound, Json(None)) }
+        }
+    }
+}
 
 impl<T> FromResidual<Result<Infallible, mongodb::error::Error>> for DBResponse<T> {
     fn from_residual(residual: Result<Infallible, mongodb::error::Error>) -> Self {
@@ -66,7 +79,9 @@ pub trait DBQuery {
 pub async fn db_query_get<T, Q>(db: Connection<BrussData>, query: Q) -> DBResponse<Vec<T>>
     where T: BrussType, Q: DBQuery 
 {
-    db_query_doc(db, query.to_doc()).await
+    let doc = query.to_doc();
+    println!("   >> Request query: {}", doc);
+    db_query_doc(db, doc).await
 }
 
 pub async fn db_query_json<T, Q>(db: Connection<BrussData>, query: Json<Q>) -> DBResponse<Vec<T>>
