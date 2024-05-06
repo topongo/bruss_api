@@ -4,21 +4,7 @@ use tt::AreaType;
 use crate::db::BrussData;
 use mongodb::bson::{doc, Document};
 use rocket_db_pools::Connection;
-use super::db::{db_query_get, DBQuery, DBResponse};
-
-struct AreaTypeWrapper {
-    inner: AreaType
-}
-
-impl FromFormField<'_> for AreaTypeWrapper {
-    fn from_value(field: rocket::form::ValueField<'_>) -> rocket::form::Result<'_,Self> {
-        match field.value {
-            "u" => Ok(AreaTypeWrapper { inner: AreaType::U }),
-            "e" => Ok(AreaTypeWrapper { inner: AreaType::E }),
-            _ => Err(form::Error::validation("could be either \"u\" or \"e\"").into())
-        }
-    }
-}
+use super::{db::{db_query_get, DBQuery, DBResponse}, AreaTypeWrapper};
 
 #[derive(FromForm)]
 pub struct TripStopQuery {

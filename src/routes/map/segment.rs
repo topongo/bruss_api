@@ -1,10 +1,11 @@
 use bruss_config::CONFIGS;
 use bruss_data::{BrussType, PolySegment, Segment};
 use rocket::{http::Status, serde::json::Json};
+use tt::AreaType;
 use crate::db::BrussData;
 use mongodb::bson::{Document,doc};
 use rocket_db_pools::Connection;
-use super::db::{db_query_json, DBResponse, DBQuery};
+use super::{db::{db_query_json, DBQuery, DBResponse}, AreaTypeWrapper};
 use serde::{Serialize,Deserialize};
 use futures::stream::TryStreamExt;
 
@@ -16,12 +17,12 @@ use futures::stream::TryStreamExt;
 //     Coords,
 // }
 
-// #[derive(Serialize,Deserialize)]
-#[derive(FromForm,Deserialize)]
+#[derive(FromForm, Deserialize)]
 pub struct SegmentQuery {
-    stops: Option<Vec<(u16, u16)>>,
+    stops: Vec<(u16, u16)>,
     #[field(name = "type")]
-    ty: Option<u16>,
+    #[serde(rename = "type")]
+    ty: AreaTypeWrapper,
     // format: Option<FormatSelect>,
 }
 
@@ -30,19 +31,13 @@ impl DBQuery for SegmentQuery {
         let mut d = Document::new();
         let Self { ty, stops } = self;
 
-        match stops {
-            Some(stops) => if stops.len() > 0 {
-                d.insert("$or", stops.iter()
-                    .map(|(s1, s2)| doc!{"from": *s1 as i32, "to": *s2 as i32})
-                    .collect::<Vec<Document>>()
-                );
-            }
-            None => {},
+        if stops.len() > 0 {
+            d.insert("$or", stops.iter()
+                .map(|(s1, s2)| doc!{"from": *s1 as i32, "to": *s2 as i32})
+                .collect::<Vec<Document>>()
+            );
+            d.insert::<&'static str, &'static str>("type", ty.inner.into());
         }
-        // info!("id field: {:?}", segs);
-        // if let Some(id) = id { d.insert("id", id.iter().map(|v| *v as i32).collect::<Vec<i32>>() ); }
-        if let Some(ty) = ty { d.insert("type", *ty as i32); }
-        info!("document: {d:?}");
         d
     }
 }
