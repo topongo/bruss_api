@@ -19,3 +19,7 @@ lazy_static = "1.4.0"
 bruss_config = { path = "../../config" }
 bruss_data = { path = "../../data", features = ["db"] }
 tt = { path = "../../tt" }
+
+[dev-dependencies]
+chrono = "^0.4"
+

@@ -9,6 +9,8 @@ use rocket_db_pools::Database;
 mod routes;
 mod db;
 mod cors;
+#[cfg(test)]
+mod tests;
 
 
 #[get("/")]
@@ -44,3 +46,4 @@ fn rocket() -> _ {
         }))
         .attach(cors::CORS)
 }
+
