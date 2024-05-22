@@ -1,0 +1,553 @@
+openapi: 3.0.3
+info:
+  title: Bruss - Public Transport
+  description: |-
+    Trentino Trasporti API proxy, supports map endpoints, for a visual public transport tracking.
+  contact:
+    email: lorenzo.bodini.private@gmail.com
+  license:
+    name: GPLv3.0
+    url: https://www.gnu.org/licenses/gpl-3.0.txt
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000/api/v1/
+tags:
+  - name: map
+    description: Get data about everything related to the map and the transport schema.
+  - name: tracking
+    description: Get data about real time positioning of the public transport vehicles.
+paths:
+  /map/area/{id}:
+    get:
+      tags:
+        - map
+      summary: Get specific area
+      parameters:
+        - name: id
+          in: path
+          description: Area id
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Area'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /map/area:
+    get:
+      tags: 
+        - map
+      summary: Get available areas
+      parameters:
+        - name: type
+          in: query
+          description: Area type, whether Urban or Extra(urban)
+          required: false
+          schema:
+            $ref: '#/components/schemas/AreaType'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Area'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  
+  /map/route/{id}:
+    get:
+      tags:
+        - map
+      summary: Get specific route
+      parameters:
+        - name: id
+          in: path
+          description: Route id
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Route'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /map/route:
+    get:
+      tags: 
+        - map
+      summary: Get available routes
+      parameters:
+        - name: type
+          in: query
+          description: Area type, whether Urban or Extra(urban)
+          required: false
+          schema:
+            $ref: '#/components/schemas/AreaType'
+        - name: area
+          in: query
+          description: Area in which stop is contained
+          required: false
+          schema:
+            $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Route'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /map/stop/{area_type}/{id}:
+    get:
+      tags:
+        - map
+      summary: Get specific stop
+      parameters:
+        - name: id
+          in: path
+          description: Stop id
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - name: area_type
+          in: path
+          description: Stop area type
+          required: true
+          schema:
+            $ref: '#/components/schemas/AreaType'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Stop'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /map/stop/{area_type}/{id}/trips:
+    get:
+      tags:
+        - map
+      summary: Get trips passing for a specific stop
+      parameters:
+        - name: id
+          in: path
+          description: Stop id
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        - name: area_type
+          in: path
+          description: Stop area type
+          required: true
+          schema:
+            $ref: '#/components/schemas/AreaType'
+        
+        - name: id
+          in: query
+          description: Trip id
+          schema:
+            $ref: '#/components/schemas/TripId'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: array
+                items: 
+                  $ref: '#/components/schemas/Trip'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  
+  /map/route/{id}/trips:
+    get:
+      tags:
+        - map
+      summary: Get trips for a specific route
+      parameters:
+        - name: id
+          in: path
+          description: Route id
+          required: true
+          schema:
+            $ref: '#/components/schemas/Id'
+        
+        - name: id
+          in: query
+          description: Trip id
+          schema:
+            $ref: '#/components/schemas/TripId'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: array
+                items: 
+                  $ref: '#/components/schemas/Trip'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+
+  /map/stop:
+    get:
+      tags: 
+        - map
+      summary: Get available stops
+      parameters:
+        - name: type
+          in: query
+          description: Area type, whether Urban or Extra(urban)
+          required: false
+          schema:
+            $ref: '#/components/schemas/AreaType'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Stop'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  
+  /map/paths/{paths}:
+    get:
+      tags:
+        - map
+      summary: Get paths
+      parameters:
+        - name: paths
+          in: path
+          required: true
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/PathId'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Stop'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+  /map/segments/{area_type}/{stop_pairs}:
+    get:
+      tags:
+        - map
+      summary: Get segments based on stop-stop pairs
+      parameters:
+        - name: area_type
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/AreaType'
+        - name: stop_pairs
+          in: path
+          required: true
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/StopPair'
+        - name: format
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/SegmentFormat'
+      responses:
+        '200':
+          description: success
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Segment'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+
+
+
+
+components:
+  schemas:
+    Id:
+      type: integer
+      format: uint16
+      example: 23
+
+    TripId:
+      type: string
+      example:  "0003098392023091120240621"
+
+    AreaType:
+      type: string
+      example: u
+      enum:
+        - u
+        - e
+    
+    TripDirection:
+      type: string
+      example: f
+      enum:
+        - b
+        - f
+
+    PathId:
+      type: string
+      example: 35ed8ab1eb6de4062e7ccbc2d46c2b8e02f1a1e3
+
+    SegmentFormat:
+      type: string
+      example: coords
+      enum:
+        - coords
+        - poly
+    
+    StopPair:
+      type: string
+      pattern: "^\\d{1,4}-\\d{1,4}"
+      example: 163-2680
+
+    Area:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        label:
+          type: string
+          example: Urbano Trento
+        type:
+          $ref: '#/components/schemas/AreaType'
+
+    Route:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        type:
+          type: integer
+          format: uint16
+          example: 3
+        area:
+          $ref: '#/components/schemas/Id'
+        area_ty:
+          $ref: '#/components/schemas/AreaType'
+        color:
+          type: string
+          example: CCCCCC
+        name:
+          type: string
+          example: P.Dante P.Fiera Università Mesiano Povo
+        code:
+          type: string
+          example: '5/'
+
+    Position:
+      type: array
+      minItems: 2
+      maxItems: 2
+      items:
+        type: number
+        format: float
+      example:
+        - 46.065117
+        - 11.123289
+    
+    Stop:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/Id"
+        code:
+          type: string
+          example: "21545-"
+        description:
+          type: string
+          example: ""
+        position:
+          $ref: "#/components/schemas/Position"
+        altitude:
+          type: integer
+          format: uint16
+          example: 80
+        name:
+          type: string
+          example: Piazza di Fiera
+        town:
+          type: string
+          example: Trento
+        type:
+          $ref: "#/components/schemas/AreaType"
+        wheelchair_boarding:
+          type: boolean
+          example: true
+        
+    Trip:
+      type: object
+      properties:
+        id:
+          $ref: '#/components/schemas/TripId'
+        delay:
+          type: integer
+          format: int32
+          example: 2
+        direction:
+          $ref: '#/components/schemas/TripDirection'
+        next_stop:
+          $ref: '#/components/schemas/Id'
+        last_stop:
+          $ref: '#/components/schemas/Id'
+        bus_id:
+          type: integer
+          format: uint16
+          nullable: true
+          example: 329
+        route:
+          $ref: '#/components/schemas/Id'
+        headsign:
+          type: string
+          example: Povo "Polo Scientifico" Est
+        path:
+          $ref: '#/components/schemas/PathId'
+        times:
+          type: object
+          example:
+            '145':
+              arrival: 08:06:00
+              departure: 08:06:00
+            '147':
+              arrival: 08:07:00
+              departure: 08:07:00
+            '149':
+              arrival: 08:09:00
+              departure: 08:09:00
+          additionalProperties:
+            type: object
+            properties:
+              arrival:
+                type: string
+              departure:
+                type: string
+        type:
+          $ref: '#/components/schemas/AreaType'
+
+    Segment:
+      type: object
+      properties:
+        from:
+          $ref: '#/components/schemas/Id'
+        to:
+          $ref: '#/components/schemas/Id'
+        type:
+          $ref: '#/components/schemas/AreaType'
+        geometry:
+          oneOf:
+            - $ref: '#/components/schemas/Coords'
+            - $ref: '#/components/schemas/Polyline'
+    
+    Coords:
+      type: array
+      items:
+        $ref: '#/components/schemas/Position'
+
+    Polyline:
+      type: string
+      example: "{}zbAcoexGYFiAVg@Lw@POAODsAZ"
+
+
+
+    
+    ApiError:
+      type: object
+      properties:
+        # status:
+        #   type: integer
+        #   format: uint16
+        #   example: 404
+        error:
+          type: string
+          example: not found
+      
+    FormError:
+      type: object
+      properties:
+        name:
+          type: string
+          example: typeu
+        value:
+          type: string
+          example: u
+        kind:
+          type: string
+          example: unexpected
+
+  responses:
+    Unprocessable:
+      description: unprocessable entity
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ApiError'
+              - type: object
+                properties:
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FormError'
+    NotFound:
+      description: not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    InternalServerError:
+      description: internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
