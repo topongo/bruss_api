@@ -1,32 +1,31 @@
+use std::fmt::Debug;
+
+use lazy_static::lazy_static;
+use rocket::form::Strict;
+use mongodb::bson::{doc, Document};
 use bruss_data::Area;
-use crate::db::BrussData;
-use super::db::{DBResponse, DBQuery, db_query_get};
-use mongodb::bson::Document;
-use rocket_db_pools::Connection;
+use super::{AreaTypeWrapper,query::DBQuery,gen_generic_getters};
 
 
-#[derive(FromForm)]
-pub struct AreaQuery<'r> {
-    id: Option<u16>,
+#[derive(FromForm,Debug)]
+pub struct AreaQuery {
+    // id: Strict<Option<u16>>,
     #[field(name = "type")]
-    ty: Option<&'r str>,
+    ty: Strict<Option<AreaTypeWrapper>>,
 }
 
-impl DBQuery for AreaQuery<'_> {
-    fn to_doc(&self) -> Document {
+impl DBQuery for AreaQuery {
+    fn to_doc(self) -> Document {
         let mut d = Document::new();
-        if let Some(id) = self.id {
-            d.insert("id", id as i32);
-        }
-        if let Some(ty) = self.ty {
-            d.insert("ty", ty);
-        }
+        if let Some(ty) = self.ty.into_inner() { d.insert::<_, &'static str>("type", ty.into()); }
+        error!("{d:?}");
         d
     }
 }
 
-#[get("/areas?<query..>")]
-pub async fn get_areas(db: Connection<BrussData>, query: AreaQuery<'_>) -> DBResponse<Vec<Area>> {
-    db_query_get(db, query).await
+gen_generic_getters!(Area, AreaQuery, u16);
+
+lazy_static!{
+    pub static ref ROUTES: Vec<rocket::Route> = routes![get, get_opts];
 }
 

@@ -1,31 +1,44 @@
-use bruss_data::Route;
+use bruss_data::{Route, Trip};
+use lazy_static::lazy_static;
 use crate::db::BrussData;
-use mongodb::bson::Document;
+use mongodb::bson::{doc, Document};
 use rocket_db_pools::Connection;
-use super::db::{db_query_get, DBQuery, DBResponse};
+use super::{gen_generic_getters,trip::TripQuery,AreaTypeWrapper,query::{Queriable,DBInterface,DBQuery},params::{Id,ParamQuery}};
+use crate::response::ApiResponse;
+use rocket::form::Strict;
+use rocket::request::FromParam;
 
-#[derive(FromForm)]
+#[derive(FromForm,Debug)]
 pub struct RouteQuery {
-    id: Option<u16>,
     #[field(name = "type")]
-    ty: Option<u16>,
-    area: Option<u16>,
+    ty: Strict<Option<AreaTypeWrapper>>,
+    area: Strict<Option<u16>>,
 }
 
 impl DBQuery for RouteQuery {
-    fn to_doc(&self) -> Document {
+    fn to_doc(self) -> Document {
         let mut d = Document::new();
-        let RouteQuery { id, ty, area } = self;
-        if let Some(id) = id { d.insert("id", *id as i32); }
-        if let Some(ty) = ty { d.insert("type", *ty as i32); }
-        if let Some(area) = area { d.insert("area", *area as i32); }
+        error!("{self:?}");
+        let RouteQuery { ty, area } = self;
+        // if let Some(id) = id { d.insert("id", id as i32); }
+        if let Some(ty) = ty.into_inner() { d.insert::<_, &'static str>("area_ty", ty.into()); }
+        if let Some(area) = area.into_inner() { d.insert("area", area as i32); }
         d
     }
 }
 
-#[get("/routes?<query..>")]
-pub async fn get_routes(db: Connection<BrussData>, query: RouteQuery) -> DBResponse<Vec<Route>> {
-    db_query_get(db, query).await
+gen_generic_getters!(Route, RouteQuery, u16);
+
+#[get("/<id>/trips?<query..>")]
+async fn get_trips(
+    db: Connection<BrussData>,
+    id: Result<Id<u16>, <Id<u16> as FromParam<'_>>::Error>, 
+    query: rocket::form::Result<'_, Strict<TripQuery>>
+) -> ApiResponse<Trip> {
+    let id = id?.value();
+    Queriable::<Option<Trip>>::query(&DBInterface(db), query?.into_inner().to_doc_route(id as u16)).await.into()
 }
 
-
+lazy_static!{
+    pub static ref ROUTES: Vec<rocket::Route> = routes![get, get_opts, get_trips];
+}

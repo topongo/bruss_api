@@ -1,15 +1,18 @@
-use bruss_config::CONFIGS;
-use bruss_data::{BrussType, Path};
+use bruss_data::Path;
+use lazy_static::lazy_static;
 use crate::db::BrussData;
-use super::db::{DBResponse, db_query_doc};
+use crate::response::ApiResponse;
 use mongodb::bson::doc;
 use rocket_db_pools::Connection;
 
+use super::query::{DBInterface, Queriable};
 
-#[get("/path/<path>")]
-pub async fn get_path<'a>(db: Connection<BrussData>, path: &'a str) -> DBResponse<Path> {
-    Path::get_coll(&db.database(CONFIGS.db.get_db()))
-        .find_one(doc!{"id": path}, None)
-        .await?.into()
+#[get("/<paths>")]
+pub async fn get<'a>(db: Connection<BrussData>, paths: &'a str) -> ApiResponse<Vec<Path>> {
+    Queriable::<Vec<Path>>::query(&DBInterface(db), doc!{"id": {"$in": paths.split(",").collect::<Vec<&'a str>>()}}).await.into()
+}
+
+lazy_static!{
+    pub static ref ROUTES: Vec<rocket::Route> = routes![get];
 }
 

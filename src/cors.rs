@@ -14,6 +14,10 @@ impl Fairing for CORS {
     }
 
     async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
+        // make code crash if request is made in production
+        #[cfg(not(debug_assertions))]
+        panic!("refusing to send wildcard cords while in production");
+
         response.set_header(Header::new("Access-Control-Allow-Origin", "*"));
         response.set_header(Header::new("Access-Control-Allow-Methods", "POST, GET, PATCH, OPTIONS"));
         response.set_header(Header::new("Access-Control-Allow-Headers", "*"));

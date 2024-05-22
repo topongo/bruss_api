@@ -1,4 +1,5 @@
 #![feature(try_trait_v2)]
+// #![feature(inherent_associated_types)]
 #[macro_use] 
 extern crate rocket;
 
@@ -11,6 +12,7 @@ mod db;
 mod cors;
 #[cfg(test)]
 mod tests;
+mod response;
 
 
 #[get("/")]
@@ -27,18 +29,25 @@ fn welcome_api() -> &'static str {
 fn rocket() -> _ {
     rocket::build()
         .mount("/", routes![welcome_api, welcome_app])
-        .mount("/api/v1/map/", routes![
-            routes::map::get_areas,
-            routes::map::get_routes,
-            routes::map::get_segments,
-            routes::map::get_segments_poly,
-            routes::map::get_stops,
-            routes::map::get_trips_route,
-            routes::map::get_trips_stop,
-            routes::map::get_path,
-            routes::options,
-        ])
+        .mount("/api/v1/map/area", routes::map::area::ROUTES.clone())
+        .mount("/api/v1/map/route", routes::map::route::ROUTES.clone())
+        .mount("/api/v1/map/stop", routes::map::stop::ROUTES.clone())
+        .mount("/api/v1/map/paths", routes::map::path::ROUTES.clone())
+        .mount("/api/v1/map/segments", routes::map::segment::ROUTES.clone())
+            // routes::map::,
+            // routes::map::get_route_opt,
+            // routes::map::get_segments,
+            // // routes::map::get_segments_poly,
+            // routes::map::get_stops,
+            // routes::map::get_trips_route,
+            // routes::map::get_trips_stop,
+            // routes::map::get_path,
+        .mount("/api/v1/map", routes![routes::options])
         .mount("/api/v1/tracking/", routes![
+        ])
+        .register("/api/v1/", catchers![
+            response::api_catch_default,
+            response::api_catch_404,
         ])
         .attach(AdHoc::on_ignite("Database connect", |rocket| async {
             rocket.attach(BrussData::init())
