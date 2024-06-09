@@ -16,10 +16,8 @@ tokio = "1.36"
 toml = "0.8.10"
 futures = "0.3.30"
 lazy_static = "1.4.0"
+chrono = "^0.4"
 bruss_config = { path = "../../config" }
 bruss_data = { path = "../../data", features = ["db"] }
 tt = { path = "../../tt" }
-
-[dev-dependencies]
-chrono = "^0.4"
 
