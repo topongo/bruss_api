@@ -1,6 +1,7 @@
 use rocket::http::Header;
 use rocket::{Request, Response};
 use rocket::fairing::{Fairing, Info, Kind};
+use bruss_config::CONFIGS;
 
 pub struct CORS;
 
@@ -15,12 +16,17 @@ impl Fairing for CORS {
 
     async fn on_response<'r>(&self, _request: &'r Request<'_>, response: &mut Response<'r>) {
         // make code crash if request is made in production
-        #[cfg(not(debug_assertions))]
-        panic!("refusing to send wildcard cords while in production");
-
-        response.set_header(Header::new("Access-Control-Allow-Origin", "*"));
-        response.set_header(Header::new("Access-Control-Allow-Methods", "POST, GET, PATCH, OPTIONS"));
-        response.set_header(Header::new("Access-Control-Allow-Headers", "*"));
-        response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
+        if let Some(ref origin) = CONFIGS.api.cors_allowed_origin {
+            response.set_header(Header::new("Access-Control-Allow-Origin", origin));
+        }
+        if let Some(ref methods) = CONFIGS.api.cors_allowed_methods {
+            response.set_header(Header::new("Access-Control-Allow-Methods", methods.join(", ")));
+        }
+        if let Some(ref headers) = CONFIGS.api.cors_allowed_headers {
+            response.set_header(Header::new("Access-Control-Allow-Headers", headers.join(", ")));
+        }
+        if let Some(ref credentials) = CONFIGS.api.cors_allow_credentials {
+            response.set_header(Header::new("Access-Control-Allow-Credentials", credentials.to_string()));
+        }
     }
 }
