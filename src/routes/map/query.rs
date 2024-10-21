@@ -1,6 +1,6 @@
-use futures::TryStreamExt;
+use futures::{StreamExt, TryStreamExt};
 // use rocket::serde::json::Json;
-use mongodb::bson::Document;
+use mongodb::bson::{doc, Document};
 use rocket_db_pools::Connection;
 use bruss_config::CONFIGS;
 use bruss_data::BrussType;
@@ -26,7 +26,9 @@ pub trait Queriable<T> {
     async fn query(&self, query: Document) -> Result<T, MongoError>;
 
     async fn query_db<Q: DBQuery>(&self, query: Q) -> Result<T, MongoError> {
-        Self::query(&self, query.to_doc()).await
+        let doc = query.to_doc();
+        println!("{:?}", doc);
+        Self::query(self, doc).await
     }
 
     // async fn query_json<Q: DBQuery>(&self, query: Json<Q>) -> Result<T, MongoError> {
@@ -36,11 +38,18 @@ pub trait Queriable<T> {
 
 impl<T: BrussType> Queriable<Vec<T>> for DBInterface {
     async fn query(&self, query: Document) -> Result<Vec<T>, MongoError> {
+        let pipeline = vec![
+            doc!{"$match": query},
+            T::sort_doc(),
+            doc!{"$limit": 10}
+        ];
         match T::get_coll(&self.0.database(CONFIGS.db.get_db()))
-            .find(query, None)
-            .await 
+            .aggregate(pipeline, None)
+            .await
         {
-            Ok(found) => found.try_collect::<Vec<T>>().await,
+            Ok(found) => {
+                found.map(|i| mongodb::bson::from_document(i.unwrap())).try_collect().await.map_err(MongoError::from)
+            }
             Err(e) => Err(e)
         }
     }
