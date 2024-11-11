@@ -1,11 +1,12 @@
 use futures::{StreamExt, TryStreamExt};
-// use rocket::serde::json::Json;
-use mongodb::bson::{doc, Document};
+use mongodb::bson::Document;
 use rocket_db_pools::Connection;
 use bruss_config::CONFIGS;
 use bruss_data::BrussType;
 use crate::db::BrussData;
 use mongodb::error::Error as MongoError;
+
+use super::pipeline::Pipeline;
 
 pub trait DBQuery {
     fn to_doc(self) -> Document;
@@ -23,12 +24,10 @@ pub struct DBInterface(pub Connection<BrussData>);
 
 // #[allow(dead_code)]
 pub trait Queriable<T> {
-    async fn query(&self, query: Document) -> Result<T, MongoError>;
+    async fn query(&self, pipeline: Pipeline) -> Result<T, MongoError>;
 
     async fn query_db<Q: DBQuery>(&self, query: Q) -> Result<T, MongoError> {
-        let doc = query.to_doc();
-        println!("{:?}", doc);
-        Self::query(self, doc).await
+        Self::query(self, Pipeline::from(query)).await
     }
 
     // async fn query_json<Q: DBQuery>(&self, query: Json<Q>) -> Result<T, MongoError> {
@@ -37,14 +36,9 @@ pub trait Queriable<T> {
 }
 
 impl<T: BrussType> Queriable<Vec<T>> for DBInterface {
-    async fn query(&self, query: Document) -> Result<Vec<T>, MongoError> {
-        let pipeline = vec![
-            doc!{"$match": query},
-            T::sort_doc(),
-            doc!{"$limit": 10}
-        ];
+    async fn query(&self, pipeline: Pipeline) -> Result<Vec<T>, MongoError> {
         match T::get_coll(&self.0.database(CONFIGS.db.get_db()))
-            .aggregate(pipeline, None)
+            .aggregate(pipeline.build(), None)
             .await
         {
             Ok(found) => {
@@ -56,9 +50,9 @@ impl<T: BrussType> Queriable<Vec<T>> for DBInterface {
 }
 
 impl<T: BrussType + Sync + Unpin + Send> Queriable<Option<T>> for DBInterface {
-    async fn query(&self, query: Document) -> Result<Option<T>, MongoError> {
+    async fn query(&self, pipeline: Pipeline) -> Result<Option<T>, MongoError> {
         T::get_coll(&self.0.database(CONFIGS.db.get_db()))
-            .find_one(query, None)
+            .find_one(pipeline.query(), None)
             .await
     }
 }

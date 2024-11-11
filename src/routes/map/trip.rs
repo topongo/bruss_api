@@ -1,12 +1,30 @@
+use bruss_data::Trip;
 use chrono::{NaiveTime, Timelike};
+use lazy_static::lazy_static;
 use rocket::form::FromForm;
 use tt::AreaType;
 use mongodb::bson::{doc, Document};
+use super::query::DBQuery;
+use super::pipeline::Pipeline;
+
+use super::gen_generic_getters;
 
 #[derive(FromForm)]
 pub struct TripQuery {
     id: Option<String>,
     time: Option<String>,
+}
+
+#[derive(FromForm)]
+pub struct TripQuerySingle {
+    id: String,
+}
+
+impl DBQuery for TripQuerySingle {
+    fn to_doc(self) -> Document {
+        let Self { id } = self;        
+        doc!{"id": id}
+    }
 }
 
 impl TripQuery {
@@ -48,7 +66,6 @@ impl TripQuery {
         }
         if let Some(id) = id { conds.push(doc!{"id": id.clone()}) }
         let d = doc!{"$and": conds};
-        info!("{:?}", d);
         d
     }
 
@@ -60,7 +77,6 @@ impl TripQuery {
         }
         if let Some(id) = id { conds.push(doc!{"id": id.clone()}) }
         let d = doc!{"$and": conds};
-        info!("{:?}", d);
         d
     }
     
@@ -73,3 +89,9 @@ impl TripQuery {
     // }
 }
 
+
+gen_generic_getters!(Trip, TripQuerySingle, String);
+
+lazy_static!{
+    pub static ref ROUTES: Vec<rocket::Route> = routes![get, get_opts];
+}

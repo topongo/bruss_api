@@ -122,7 +122,7 @@ async fn get<'a>(
     let fmt = format.unwrap_or_default();
     
     let w: SegmentFormatWrapper = (
-        Queriable::<Vec<Segment>>::query(&DBInterface(db), pairs?.to_doc(area_type?.value())).await?,
+        Queriable::<Vec<Segment>>::query(&DBInterface(db), pairs?.to_doc(area_type?.value()).into()).await?,
         fmt
     ).into();
     w.into()

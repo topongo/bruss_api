@@ -7,6 +7,7 @@ use super::{gen_generic_getters,trip::TripQuery,AreaTypeWrapper,query::{Queriabl
 use crate::response::ApiResponse;
 use rocket::form::Strict;
 use rocket::request::FromParam;
+use super::pipeline::Pipeline;
 
 #[derive(FromForm,Debug)]
 pub struct RouteQuery {
@@ -29,14 +30,17 @@ impl DBQuery for RouteQuery {
 
 gen_generic_getters!(Route, RouteQuery, u16);
 
-#[get("/<id>/trips?<query..>")]
+#[get("/<id>/trips?<limit>&<query..>")]
 async fn get_trips(
     db: Connection<BrussData>,
     id: Result<Id<u16>, <Id<u16> as FromParam<'_>>::Error>, 
-    query: rocket::form::Result<'_, Strict<TripQuery>>
+    query: rocket::form::Result<'_, Strict<TripQuery>>,
+    limit: Option<u32>,
 ) -> ApiResponse<Trip> {
     let id = id?.value();
-    Queriable::<Option<Trip>>::query(&DBInterface(db), query?.into_inner().to_doc_route(id as u16)).await.into()
+    let pipeline = Pipeline::from(query?.into_inner().to_doc_route(id as u16))
+        .limit(limit);
+    Queriable::<Option<Trip>>::query(&DBInterface(db), pipeline).await.into()
 }
 
 lazy_static!{

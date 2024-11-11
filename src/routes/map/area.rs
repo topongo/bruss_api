@@ -5,6 +5,7 @@ use rocket::form::Strict;
 use mongodb::bson::{doc, Document};
 use bruss_data::Area;
 use super::{AreaTypeWrapper,query::DBQuery,gen_generic_getters};
+use super::pipeline::Pipeline;
 
 
 #[derive(FromForm,Debug)]
