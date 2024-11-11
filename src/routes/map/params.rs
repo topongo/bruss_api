@@ -6,6 +6,7 @@ use super::query::DBQuery;
 use std::num::ParseIntError;
 use mongodb::bson::Document;
 
+#[derive(Debug)]
 pub struct Id<T: Serialize> {
     inner: T
 }
@@ -37,6 +38,15 @@ impl<'a> FromParam<'a> for Id<AreaTypeWrapper> {
     }
 }
 
+impl<'a> FromParam<'a> for Id<String> {
+    type Error = ParamError<ParseIntError>;
+
+    fn from_param(param: &'a str) -> Result<Self, Self::Error> {
+        Ok(Id { inner: param.to_owned() })
+    }
+}
+
+/// `ParamQuery`: A trait for converting a parameter into a mongodb document query.
 pub trait ParamQuery<T>: DBQuery {
     fn key(&self) -> &'static str;
     fn value(self) -> T;
@@ -77,3 +87,22 @@ impl DBQuery for Id<AreaTypeWrapper> {
         d
     }
 }
+
+impl ParamQuery<String> for Id<String> {
+    fn key(&self) -> &'static str {
+        "id"
+    }
+
+    fn value(self) -> String {
+        self.inner
+    }
+}
+
+impl DBQuery for Id<String> {
+    fn to_doc(self) -> Document {
+        let mut d = Document::new();
+        d.insert(self.key(), self.value());
+        d
+    }
+}
+

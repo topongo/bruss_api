@@ -4,7 +4,7 @@ use rocket::request::FromParam;
 use crate::db::BrussData;
 use mongodb::bson::{Document,doc};
 use rocket_db_pools::Connection;
-use super::{query::{DBInterface, Queriable},params::{Id, ParamError, ParamQuery}, AreaTypeWrapper};
+use super::{params::{Id, ParamError, ParamQuery}, pipeline::Pipeline, query::{DBInterface, Queriable, QueryResult}, AreaTypeWrapper};
 use serde::{Serialize,Deserialize};
 use crate::response::ApiResponse;
 use std::{error::Error as StdError, fmt::Display, num::ParseIntError};
@@ -122,13 +122,13 @@ async fn get<'a>(
     let fmt = format.unwrap_or_default();
     
     let w: SegmentFormatWrapper = (
-        Queriable::<Vec<Segment>>::query(&DBInterface(db), pairs?.to_doc(area_type?.value())).await?,
+        Queriable::<QueryResult<Segment>>::query(&DBInterface(db), pairs?.to_doc(area_type?.value()).into()).await?,
         fmt
     ).into();
     w.into()
 }
 
-struct SegmentFormatWrapper(Vec<Segment>, FormatSelect);
+struct SegmentFormatWrapper(QueryResult<Segment>, FormatSelect);
 
 impl Serialize for SegmentFormatWrapper {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
@@ -136,9 +136,9 @@ impl Serialize for SegmentFormatWrapper {
             S: serde::Serializer {
         let Self(inner, format) = self;
         match format {
-            FormatSelect::Coords => inner.serialize(serializer),
+            FormatSelect::Coords => inner.data.serialize(serializer),
             FormatSelect::Polyline => {
-                let inner: Vec<PolySegment> = inner.iter()
+                let inner: Vec<PolySegment> = inner.data.iter()
                     .map(|s| s.clone().into())
                     .collect();
                 inner.serialize(serializer)
@@ -147,15 +147,16 @@ impl Serialize for SegmentFormatWrapper {
     }
 }
 
-impl From<(Vec<Segment>, FormatSelect)> for SegmentFormatWrapper {
-    fn from(value: (Vec<Segment>, FormatSelect)) -> Self {
+impl From<(QueryResult<Segment>, FormatSelect)> for SegmentFormatWrapper {
+    fn from(value: (QueryResult<Segment>, FormatSelect)) -> Self {
         SegmentFormatWrapper(value.0, value.1)
     }
 }
 
 impl Into<ApiResponse<SegmentFormatWrapper>> for SegmentFormatWrapper {
     fn into(self) -> ApiResponse<SegmentFormatWrapper> {
-        ApiResponse::Ok(self)
+        let c = self.0.data.len();
+        ApiResponse::Ok(self, Some(c))
     }
 }
 

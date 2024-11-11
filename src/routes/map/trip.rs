@@ -1,17 +1,35 @@
-use chrono::{NaiveTime, Timelike};
+use bruss_data::Trip;
+use chrono::{Local, NaiveDateTime, NaiveTime, Timelike};
+use lazy_static::lazy_static;
 use rocket::form::FromForm;
+use rocket::time::Time;
 use tt::AreaType;
 use mongodb::bson::{doc, Document};
+use super::query::DBQuery;
+use super::pipeline::Pipeline;
+
+use super::gen_generic_getters;
 
 #[derive(FromForm)]
 pub struct TripQuery {
-    id: Option<String>,
-    time: Option<String>,
+    id: Option<Vec<String>>,
+    time: Option<Time>,
+}
+
+#[derive(FromForm,Debug)]
+pub struct TripQuerySingle {
+    id: Vec<String>,
+}
+
+impl DBQuery for TripQuerySingle {
+    fn to_doc(self) -> Document {
+        let Self { id } = self;
+        doc!{"id": doc!("$in": id)}
+    }
 }
 
 impl TripQuery {
-    fn to_doc_time_stop(time: String, stop: u16) -> Document {
-        let t = NaiveTime::parse_from_str(&time, "%H:%M").unwrap();
+    fn to_doc_time_stop(t: Time, stop: u16) -> Document {
         doc!{
             "$expr": {
                 "$and": [
@@ -22,8 +40,7 @@ impl TripQuery {
         }
     }
 
-    fn to_doc_time_route(time: String) -> Document {
-        let t = NaiveTime::parse_from_str(&time, "%H:%M").unwrap();
+    fn to_doc_time_route(t: Time) -> Document {
         doc!{
             "$expr": {
                 "$anyElementTrue": {
@@ -48,7 +65,6 @@ impl TripQuery {
         }
         if let Some(id) = id { conds.push(doc!{"id": id.clone()}) }
         let d = doc!{"$and": conds};
-        info!("{:?}", d);
         d
     }
 
@@ -60,7 +76,6 @@ impl TripQuery {
         }
         if let Some(id) = id { conds.push(doc!{"id": id.clone()}) }
         let d = doc!{"$and": conds};
-        info!("{:?}", d);
         d
     }
     
@@ -73,3 +88,9 @@ impl TripQuery {
     // }
 }
 
+
+gen_generic_getters!(Trip, TripQuerySingle, String);
+
+lazy_static!{
+    pub static ref ROUTES: Vec<rocket::Route> = routes![get, get_opts];
+}

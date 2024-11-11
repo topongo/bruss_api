@@ -34,6 +34,7 @@ fn rocket() -> _ {
         .mount("/api/v1/map/stop", routes::map::stop::ROUTES.clone())
         .mount("/api/v1/map/paths", routes::map::path::ROUTES.clone())
         .mount("/api/v1/map/segments", routes::map::segment::ROUTES.clone())
+        .mount("/api/v1/map/trip", routes::map::trip::ROUTES.clone())
             // routes::map::,
             // routes::map::get_route_opt,
             // routes::map::get_segments,
@@ -43,8 +44,7 @@ fn rocket() -> _ {
             // routes::map::get_trips_stop,
             // routes::map::get_path,
         .mount("/api/v1/map", routes![routes::options])
-        .mount("/api/v1/tracking/", routes![
-        ])
+        .mount("/api/v1/tracking/", routes::tracking::ROUTES.clone())
         .register("/api/v1/", catchers![
             response::api_catch_default,
             response::api_catch_404,
