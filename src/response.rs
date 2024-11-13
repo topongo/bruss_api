@@ -10,16 +10,17 @@ use serde::Serialize;
 use serde::ser::SerializeMap;
 
 use crate::routes::map::params::ParamError;
+use crate::routes::map::query::QueryResult;
 
 pub enum ApiResponse<T> {
-    Ok(T),
+    Ok(T, Option<usize>),
     Error(ApiError)
 }
 
 impl<T> ApiResponse<T> {
     pub fn status(&self) -> u16 {
         match self {
-            Self::Ok(_) => 200,
+            Self::Ok(..) => 200,
             Self::Error(e) => e.status()
         }
     }
@@ -30,7 +31,7 @@ impl<T: Serialize> Serialize for ApiResponse<T> {
         where S: serde::Serializer {
 
         match self {
-            Self::Ok(v) => v.serialize(serializer),
+            Self::Ok(v, ..) => v.serialize(serializer),
             Self::Error(e) => e.serialize(serializer)
         }
     }
@@ -48,8 +49,12 @@ impl<'r, 'o: 'r, T: Serialize> Responder<'r, 'o> for ApiResponse<T> {
         //             .ok()
         //    }
         // } else {
-        Response::build()
-            .status(Status::new(self.status()))
+        let mut build = Response::build();
+        build.status(Status::new(self.status()));
+        if let Self::Ok(_, Some(count)) = self {
+            build.raw_header("X-Total-Count", count.to_string());
+        }
+        build
             .merge(Json(self).respond_to(request)?)
             .ok()
         // }
@@ -58,10 +63,10 @@ impl<'r, 'o: 'r, T: Serialize> Responder<'r, 'o> for ApiResponse<T> {
     
 }
 
-impl<T> From<Result<T, mongodb::error::Error>> for ApiResponse<T> {
-    fn from(value: Result<T, mongodb::error::Error>) -> Self {
+impl<T> From<Result<QueryResult<T>, mongodb::error::Error>> for ApiResponse<Vec<T>> {
+    fn from(value: Result<QueryResult<T>, mongodb::error::Error>) -> Self {
         match value {
-            Ok(v) => ApiResponse::Ok(v),
+            Ok(v) => ApiResponse::Ok(v.data, Some(v.total)),
             Err(e) => ApiResponse::Error(ApiError::InternalServer(Box::new(e)))
         }
     }
@@ -71,7 +76,7 @@ impl<T> From<Result<Option<T>, mongodb::error::Error>> for ApiResponse<T> {
     fn from(value: Result<Option<T>, mongodb::error::Error>) -> Self {
         match value {
             Ok(v) => match v {
-                Some(v) => ApiResponse::Ok(v),
+                Some(v) => ApiResponse::Ok(v, None),
                 None => ApiError::NotFound.respond() 
             }
             Err(e) => ApiError::InternalServer(Box::new(e)).respond()
@@ -114,7 +119,15 @@ impl<T, E: std::error::Error> FromResidual<Result<Infallible, ParamError<E>>> fo
         match residual {
             Ok(_inf) => panic!(),
             Err(_e) => ApiError::Form(vec![FormError { name: None, value: None, kind: "invalid identifier".to_owned() }]).respond()
-            
+        }
+    }
+}
+
+impl<T> FromResidual<Result<Infallible, tt::TTError>> for ApiResponse<T> {
+    fn from_residual(residual: Result<Infallible, tt::TTError>) -> Self {
+        match residual {
+            Ok(_inf) => panic!(),
+            Err(e) => ApiError::Generic(500, e.to_string()).respond()
         }
     }
 }

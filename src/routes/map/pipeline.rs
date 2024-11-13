@@ -7,6 +7,7 @@ use super::query::DBQuery;
 pub struct Pipeline {
     find: Document,
     limit: i64,
+    skip: i64,
     pre_sort: Document,
     sort: Document,
 }
@@ -15,26 +16,15 @@ impl Pipeline {
     pub fn new(find: Document) -> Self {
         Self {
             find,
+            skip: 0,
             limit: CONFIGS.api.default_limit,
             pre_sort: doc!{},
             sort: doc!{"_id": 1},
         }
     }
 
-    pub fn build(self) -> Vec<Document> {
-        let mut pipeline = vec![];
-        if !self.find.is_empty() {
-            pipeline.push(doc!{"$match": self.find});
-        }
-        if !self.pre_sort.is_empty() {
-            pipeline.push(self.pre_sort);
-        }
-        if !self.sort.is_empty() {
-            pipeline.push(doc!{"$sort": self.sort});
-        }
-        pipeline.push(doc!{"$limit": self.limit});
-        info!("  Generated pipeline: {:?}", pipeline);
-        pipeline
+    pub fn build(self) -> BuiltPipeline {
+        BuiltPipeline::from(self)
     }
 
     pub fn limit(mut self, limit: Option<u32>) -> Self {
@@ -44,6 +34,13 @@ impl Pipeline {
             } else {
                 self.limit = limit as i64;
             }
+        }
+        self
+    }
+
+    pub fn skip(mut self, skip: Option<u32>) -> Self {
+        if let Some(skip) = skip {
+            self.skip = skip as i64;
         }
         self
     }
@@ -74,3 +71,34 @@ impl From<Document> for Pipeline {
         Self::new(doc)
     }
 }
+
+pub(crate) struct BuiltPipeline {
+    pub count: Vec<Document>,
+    pub fetch: Vec<Document>,
+}
+
+impl From<Pipeline> for BuiltPipeline {
+    fn from(value: Pipeline) -> Self {
+        let mut fetch = vec![];
+        let mut count = vec![];
+        if !value.find.is_empty() {
+            fetch.push(doc!{"$match": value.find.clone()});
+            count.push(doc!{"$match": value.find});
+        }
+        if !value.pre_sort.is_empty() {
+            fetch.push(value.pre_sort);
+        }
+        if !value.sort.is_empty() {
+            fetch.push(doc!{"$sort": value.sort});
+        }
+        fetch.push(doc!{"$skip": value.skip});
+        fetch.push(doc!{"$limit": value.limit});
+        count.push(doc!{"$count": "count"});
+        info!("  Generated pipeline: {:?}", fetch);
+        BuiltPipeline {
+            count,
+            fetch
+        }
+    }
+}
+

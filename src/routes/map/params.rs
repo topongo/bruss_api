@@ -6,6 +6,7 @@ use super::query::DBQuery;
 use std::num::ParseIntError;
 use mongodb::bson::Document;
 
+#[derive(Debug)]
 pub struct Id<T: Serialize> {
     inner: T
 }
@@ -45,6 +46,7 @@ impl<'a> FromParam<'a> for Id<String> {
     }
 }
 
+/// `ParamQuery`: A trait for converting a generic parameter into a mongodb document query.
 pub trait ParamQuery<T>: DBQuery {
     fn key(&self) -> &'static str;
     fn value(self) -> T;
@@ -103,3 +105,4 @@ impl DBQuery for Id<String> {
         d
     }
 }
+

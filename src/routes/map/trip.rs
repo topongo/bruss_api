@@ -1,7 +1,8 @@
 use bruss_data::Trip;
-use chrono::{NaiveTime, Timelike};
+use chrono::{Local, NaiveDateTime, NaiveTime, Timelike};
 use lazy_static::lazy_static;
 use rocket::form::FromForm;
+use rocket::time::Time;
 use tt::AreaType;
 use mongodb::bson::{doc, Document};
 use super::query::DBQuery;
@@ -11,11 +12,23 @@ use super::gen_generic_getters;
 
 #[derive(FromForm)]
 pub struct TripQuery {
-    id: Option<String>,
-    time: Option<String>,
+    id: Option<Vec<String>>,
+    time: Option<Time>,
 }
 
-#[derive(FromForm)]
+// #[derive(FromForm,Debug)]
+// pub struct TripQuerySingle {
+//     id: Vec<String>,
+// }
+
+// impl DBQuery for TripQuerySingle {
+//     fn to_doc(self) -> Document {
+//         let Self { id } = self;
+//         doc!{"id": doc!("$in": id)}
+//     }
+// }
+
+#[derive(FromForm, Debug)]
 pub struct TripQuerySingle {
     id: String,
 }
@@ -28,8 +41,7 @@ impl DBQuery for TripQuerySingle {
 }
 
 impl TripQuery {
-    fn to_doc_time_stop(time: String, stop: u16) -> Document {
-        let t = NaiveTime::parse_from_str(&time, "%H:%M").unwrap();
+    fn to_doc_time_stop(t: Time, stop: u16) -> Document {
         doc!{
             "$expr": {
                 "$and": [
@@ -40,8 +52,7 @@ impl TripQuery {
         }
     }
 
-    fn to_doc_time_route(time: String) -> Document {
-        let t = NaiveTime::parse_from_str(&time, "%H:%M").unwrap();
+    fn to_doc_time_route(t: Time) -> Document {
         doc!{
             "$expr": {
                 "$anyElementTrue": {

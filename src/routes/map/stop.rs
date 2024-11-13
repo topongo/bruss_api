@@ -28,13 +28,14 @@ impl DBQuery for StopQuery {
 gen_area_getters!(Stop, StopQuery, u16);
 
 
-#[get("/<area_type>/<id>/trips?<limit>&<query..>")]
+#[get("/<area_type>/<id>/trips?<limit>&<skip>&<query..>")]
 async fn get_trips(
     db: Connection<BrussData>,
     area_type: Result<Id<AreaTypeWrapper>, <Id<AreaTypeWrapper> as FromParam<'_>>::Error>, 
     id: Result<Id<u16>, <Id<u16> as FromParam<'_>>::Error>, 
     query: rocket::form::Result<'_, Strict<TripQuery>>,
     limit: Option<u32>,
+    skip: Option<u32>,
 ) -> ApiResponse<Vec<Trip>> {
     let id = id?.value();
     // query?.into_inner().to_doc_stop(id as u16, area_type?.value().inner);
@@ -58,14 +59,16 @@ async fn get_trips(
         )
         .limit(limit)
         .sort(doc!{"arrival_time": 1});
-    Queriable::<Vec<Trip>>::query(&DBInterface(db), pipeline).await.into()
+    Queriable::<QueryResult<Trip>>::query(&DBInterface(db), pipeline).await.into()
 }
 
-#[get("/<area_type>/<id>/routes")]
+#[get("/<area_type>/<id>/routes?<limit>&<skip>")]
 async fn get_routes(
     db: Connection<BrussData>,
     area_type: Result<Id<AreaTypeWrapper>, <Id<AreaTypeWrapper> as FromParam<'_>>::Error>, 
     id: Result<Id<u16>, <Id<u16> as FromParam<'_>>::Error>,
+    limit: Option<u32>,
+    skip: Option<u32>,
 ) -> ApiResponse<Vec<Route>> {
     let id = id?.value();
     let ty: &str = area_type?.value().into();
@@ -76,7 +79,7 @@ async fn get_routes(
         .distinct("route", doc!{ "type": ty, "$or": [ { format!("times.{}", id): { "$exists": true } }, { format!("times.{}", id): { "$exists": true } } ] }, None)
         .await?;
         
-    Queriable::<Vec<Route>>::query(&DBInterface(db), Pipeline::new(doc!{"id": {"$in": route_ids}})).await.into()
+    Queriable::<QueryResult<Route>>::query(&DBInterface(db), Pipeline::new(doc!{"id": {"$in": route_ids}}).limit(limit).skip(skip)).await.into()
 }
 
 lazy_static!{

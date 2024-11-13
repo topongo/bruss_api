@@ -48,6 +48,8 @@ impl Into<Bson> for AreaTypeWrapper {
 
 macro_rules! gen_generic_getters {
     ($type:ident, $query:ty, $id_type:ident) => {
+        use crate::routes::map::query::QueryResult;
+
         #[get("/<id>")]
         pub async fn get(
             db: rocket_db_pools::Connection<crate::BrussData>,
@@ -56,19 +58,28 @@ macro_rules! gen_generic_getters {
             super::query::Queriable::<Option<$type>>::query(&super::query::DBInterface(db), id?.to_doc().into()).await.into()
         }
 
-        #[get("/?<limit>&<query..>")]
+        #[get("/?<limit>&<skip>&<query..>")]
         pub async fn get_opts(
             db: rocket_db_pools::Connection<crate::BrussData>, 
             query: rocket::form::Result<'_, rocket::form::Strict<$query>>,
             limit: Option<u32>,
+            skip: Option<u32>,
         ) -> crate::response::ApiResponse<Vec<$type>> {
-            super::query::Queriable::<Vec<$type>>::query(&super::query::DBInterface(db), Pipeline::from(query?.into_inner()).limit(limit)).await.into()
+            println!("id: {:?}", query);
+            super::query::Queriable::<QueryResult<$type>>::query(
+                &super::query::DBInterface(db), 
+                Pipeline::from(query?.into_inner())
+                    .limit(limit)
+                    .skip(skip)
+            ).await.into()
         }
     };
 }
 
 macro_rules! gen_area_getters {
     ($type:ident, $query:ty, $id_type:ident) => {
+        use crate::routes::map::query::QueryResult;
+
         #[get("/<area_type>/<id>?<limit>")]
         pub async fn get(
             db: rocket_db_pools::Connection<crate::BrussData>, 
@@ -81,9 +92,14 @@ macro_rules! gen_area_getters {
             Queriable::<Option<$type>>::query(&DBInterface(db), Pipeline::from(d).limit(limit)).await.into()
         }
 
-        #[get("/?<query..>")]
-        pub async fn get_opts(db: Connection<BrussData>, query: rocket::form::Result<'_, Strict<$query>>) -> ApiResponse<Vec<$type>> {
-            Queriable::<Vec<$type>>::query_db(&DBInterface(db), query?.into_inner()).await.into()
+        #[get("/?<skip>&<limit>&<query..>")]
+        pub async fn get_opts(
+            db: Connection<BrussData>, 
+            query: rocket::form::Result<'_, Strict<$query>>,
+            skip: Option<u32>,
+            limit: Option<u32>,
+        ) -> ApiResponse<Vec<$type>> {
+            Queriable::<QueryResult<$type>>::query(&DBInterface(db), Pipeline::from(query?.into_inner()).skip(skip).limit(limit)).await.into()
         }
     };
 }

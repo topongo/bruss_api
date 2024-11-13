@@ -13,6 +13,7 @@ use super::pipeline::Pipeline;
 pub struct RouteQuery {
     #[field(name = "type")]
     ty: Strict<Option<AreaTypeWrapper>>,
+    id: Strict<Option<Vec<u16>>>,
     area: Strict<Option<u16>>,
 }
 
@@ -20,10 +21,11 @@ impl DBQuery for RouteQuery {
     fn to_doc(self) -> Document {
         let mut d = Document::new();
         error!("{self:?}");
-        let RouteQuery { ty, area } = self;
+        let RouteQuery { ty, area, id } = self;
         // if let Some(id) = id { d.insert("id", id as i32); }
         if let Some(ty) = ty.into_inner() { d.insert::<_, &'static str>("area_ty", ty.into()); }
         if let Some(area) = area.into_inner() { d.insert("area", area as i32); }
+        if let Some(id) = id.into_inner() { d.insert("id", doc!{"$in": id.iter().map(|v| *v as i32).collect::<Vec<i32>>()}); }
         d
     }
 }
