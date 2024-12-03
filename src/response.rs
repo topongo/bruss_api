@@ -14,7 +14,28 @@ use crate::routes::map::query::QueryResult;
 
 pub enum ApiResponse<T> {
     Ok(T, Option<usize>),
-    Error(ApiError)
+    #[cfg(not(debug_assertions))]
+    Error(ApiError),
+    #[cfg(debug_assertions)]
+    Error(ApiErrorWithStack)
+}
+
+#[cfg(debug_assertions)]
+#[derive(Serialize)]
+pub(crate) struct ApiErrorWithStack(ApiError, String);
+
+#[cfg(debug_assertions)]
+impl ApiErrorWithStack {
+    fn status(&self) -> u16 {
+        self.0.status()
+    }
+}
+
+#[cfg(debug_assertions)]
+impl From<ApiError> for ApiErrorWithStack {
+    fn from(value: ApiError) -> Self {
+        ApiErrorWithStack(value, std::backtrace::Backtrace::capture().to_string())
+    }
 }
 
 impl<T> ApiResponse<T> {
@@ -67,7 +88,7 @@ impl<T> From<Result<QueryResult<T>, mongodb::error::Error>> for ApiResponse<Vec<
     fn from(value: Result<QueryResult<T>, mongodb::error::Error>) -> Self {
         match value {
             Ok(v) => ApiResponse::Ok(v.data, Some(v.total)),
-            Err(e) => ApiResponse::Error(ApiError::InternalServer(Box::new(e)))
+            Err(e) => ApiResponse::Error(ApiError::InternalServer(Box::new(e)).into())
         }
     }
 }
@@ -97,7 +118,7 @@ impl<T> FromResidual<Option<Infallible>> for ApiResponse<T> {
     fn from_residual(residual: Option<Infallible>) -> Self {
         match residual {
             Some(_inf) => panic!(),
-            None => ApiResponse::Error(ApiError::NotFound)
+            None => ApiResponse::Error(ApiError::NotFound.into())
         }
     }
 }
@@ -178,7 +199,7 @@ impl ApiError {
     }
 
     pub fn respond<T>(self) -> ApiResponse<T> {
-        ApiResponse::Error(self)
+        ApiResponse::Error(self.into())
     }
 }
 

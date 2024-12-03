@@ -44,9 +44,14 @@ impl TripQuery {
     fn to_doc_time_stop(t: Time, stop: u16) -> Document {
         doc!{
             "$expr": {
-                "$and": [
-                    {"$gte": [{"$hour": {"$toDate": { "$concat": ["1970-01-01T", format!("$times.{}.departure", stop), "Z"]}}}, t.hour() as i32]},
-                    {"$gte": [{"$minute": {"$toDate": { "$concat": ["1970-01-01T", format!("$times.{}.departure", stop), "Z"]}}}, t.minute() as i32]},
+                "$or": [
+                    { "$and": [
+                        {"$gt": [{"$hour": {"$toDate": { "$concat": ["1970-01-01T", format!("$times.{}.departure", stop), "Z"]}}}, t.hour() as i32]},
+                    ]},
+                    { "$and": [
+                        {"$eq": [{"$hour": {"$toDate": { "$concat": ["1970-01-01T", format!("$times.{}.departure", stop), "Z"]}}}, t.hour() as i32]},
+                        {"$gte": [{"$minute": {"$toDate": { "$concat": ["1970-01-01T", format!("$times.{}.departure", stop), "Z"]}}}, t.minute() as i32]},
+                    ]}
                 ]
             }
         }

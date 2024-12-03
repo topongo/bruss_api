@@ -14,7 +14,6 @@ pub struct StopQuery {
     // id: Strict<Option<u16>>,
     #[field(name = "type")]
     ty: Strict<Option<AreaTypeWrapper>>,
-    limit: Option<u32>,
 }
 
 impl DBQuery for StopQuery {
@@ -54,10 +53,12 @@ async fn get_trips(
                 "path": 1,
                 "times": 1,
                 "type": 1,
+                "sequence": 1,
                 "arrival_time": format!("$times.{}.arrival", id), 
             }}
         )
         .limit(limit)
+        .skip(skip)
         .sort(doc!{"arrival_time": 1});
     Queriable::<QueryResult<Trip>>::query(&DBInterface(db), pipeline).await.into()
 }

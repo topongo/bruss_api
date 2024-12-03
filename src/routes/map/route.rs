@@ -32,17 +32,19 @@ impl DBQuery for RouteQuery {
 
 gen_generic_getters!(Route, RouteQuery, u16);
 
-#[get("/<id>/trips?<limit>&<query..>")]
+#[get("/<id>/trips?<limit>&<skip>&<query..>")]
 async fn get_trips(
     db: Connection<BrussData>,
     id: Result<Id<u16>, <Id<u16> as FromParam<'_>>::Error>, 
     query: rocket::form::Result<'_, Strict<TripQuery>>,
     limit: Option<u32>,
-) -> ApiResponse<Trip> {
+    skip: Option<u32>,
+) -> ApiResponse<Vec<Trip>> {
     let id = id?.value();
     let pipeline = Pipeline::from(query?.into_inner().to_doc_route(id as u16))
-        .limit(limit);
-    Queriable::<Option<Trip>>::query(&DBInterface(db), pipeline).await.into()
+        .limit(limit)
+        .skip(skip);
+    Queriable::<QueryResult<Trip>>::query(&DBInterface(db), pipeline).await.into()
 }
 
 lazy_static!{
