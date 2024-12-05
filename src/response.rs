@@ -34,7 +34,9 @@ impl ApiErrorWithStack {
 #[cfg(debug_assertions)]
 impl From<ApiError> for ApiErrorWithStack {
     fn from(value: ApiError) -> Self {
-        ApiErrorWithStack(value, std::backtrace::Backtrace::capture().to_string())
+        let stack = std::backtrace::Backtrace::capture().to_string();
+        eprint!("---------- stack trace ----------\n{}\n---------------------------------\n", stack);
+        ApiErrorWithStack(value, stack)
     }
 }
 
@@ -136,7 +138,6 @@ impl<T> FromResidual<Result<Infallible, Errors<'_>>> for ApiResponse<T> {
 
 impl<T, E: std::error::Error> FromResidual<Result<Infallible, ParamError<E>>> for ApiResponse<T> {
     fn from_residual(residual: Result<Infallible, ParamError<E>>) -> Self {
-        panic!();
         match residual {
             Ok(_inf) => panic!(),
             Err(_e) => ApiError::Form(vec![FormError { name: None, value: None, kind: "invalid identifier".to_owned() }]).respond()

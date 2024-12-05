@@ -1,5 +1,5 @@
 use bruss_data::Trip;
-use chrono::{Local, NaiveDateTime, NaiveTime, Timelike};
+use chrono::{DateTime, Local, NaiveTime, Timelike, Utc};
 use lazy_static::lazy_static;
 use rocket::form::FromForm;
 use rocket::time::Time;
@@ -41,7 +41,7 @@ impl DBQuery for TripQuerySingle {
 }
 
 impl TripQuery {
-    fn to_doc_time_stop(t: Time, stop: u16) -> Document {
+    fn to_doc_time_stop(t: NaiveTime, stop: u16) -> Document {
         doc!{
             "$expr": {
                 "$or": [
@@ -57,15 +57,22 @@ impl TripQuery {
         }
     }
 
-    fn to_doc_time_route(t: Time) -> Document {
+    fn to_doc_time_route(t: NaiveTime) -> Document {
         doc!{
             "$expr": {
                 "$anyElementTrue": {
                     "$map": {
                         "input": { "$objectToArray": "$times" },
                         "in": {
-                            "$gt": [{ "$hour": { "$toDate": { "$concat": ["1970-01-01T", "$$this.v.departure", "Z"] } } }, t.hour() as i32],
-                            "$gt": [{ "$minute": { "$toDate": { "$concat": ["1970-01-01T", "$$this.v.departure", "Z"] } } }, t.minute() as i32],
+                            "$or": [
+                                { "$and": [
+                                    {"$gt": [{ "$hour": { "$toDate": { "$concat": ["1970-01-01T", "$$this.v.departure", "Z"] } } }, t.hour() as i32]},
+                                ]},
+                                { "$and": [
+                                    {"$eq": [{ "$hour": { "$toDate": { "$concat": ["1970-01-01T", "$$this.v.departure", "Z"] } } }, t.hour() as i32]},
+                                    {"$gte": [{ "$minute": { "$toDate": { "$concat": ["1970-01-01T", "$$this.v.departure", "Z"] } } }, t.minute() as i32]},
+                                ]}
+                            ]
                         }
                     }
                 }
@@ -73,12 +80,24 @@ impl TripQuery {
         }
     }
 
+    fn _rocket_time_to_chrono_utc(time: Time) -> NaiveTime {
+        DateTime::<Utc>::from(
+            Local::now().with_time(
+                NaiveTime::from_hms_opt(
+                    time.hour().into(), 
+                    time.minute().into(),
+                    time.second().into()
+                ).unwrap()
+            ).unwrap()
+        ).time()
+    }
+
     pub fn to_doc_stop(self, stop: u16, ty: AreaType) -> Document {
         let Self { id, time } = self;
         let ty_st: &str = ty.into();
         let mut conds = vec![doc!{"type": ty_st}, doc!{format!("times.{}", stop): doc!{"$exists": true}}];
         if let Some(time) = time {
-            conds.push(Self::to_doc_time_stop(time, stop));
+            conds.push(Self::to_doc_time_stop(Self::_rocket_time_to_chrono_utc(time), stop));
         }
         if let Some(id) = id { conds.push(doc!{"id": id.clone()}) }
         let d = doc!{"$and": conds};
@@ -89,7 +108,10 @@ impl TripQuery {
         let Self { id, time } = self;
         let mut conds = vec![doc!{"route": route as i32}];
         if let Some(time) = time {
-            conds.push(Self::to_doc_time_route(time));
+            println!("requested time: {:?}", time);
+            let u = Self::_rocket_time_to_chrono_utc(time);
+            println!("converted time: {:?}", u);
+            conds.push(Self::to_doc_time_route(u));
         }
         if let Some(id) = id { conds.push(doc!{"id": id.clone()}) }
         let d = doc!{"$and": conds};

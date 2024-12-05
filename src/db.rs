@@ -1,5 +1,5 @@
 use rocket_db_pools::Database;
-use mongodb::Client;
+use rocket_db_pools::mongodb::Client;
 
 #[derive(Database)]
 #[database("bruss")]

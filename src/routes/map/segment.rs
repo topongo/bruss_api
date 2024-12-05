@@ -4,7 +4,7 @@ use rocket::request::FromParam;
 use crate::db::BrussData;
 use mongodb::bson::{Document,doc};
 use rocket_db_pools::Connection;
-use super::{params::{Id, ParamError, ParamQuery}, pipeline::Pipeline, query::{DBInterface, Queriable, QueryResult}, AreaTypeWrapper};
+use super::{params::{Id, ParamError, ParamQuery}, query::{DBInterface, Queriable, QueryResult}, AreaTypeWrapper};
 use serde::{Serialize,Deserialize};
 use crate::response::ApiResponse;
 use std::{error::Error as StdError, fmt::Display, num::ParseIntError};

@@ -1,17 +1,19 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::time::Duration;
 
 use bruss_config::CONFIGS;
-use bruss_data::{FromTT, Route, Trip};
+use bruss_data::{BrussType, FromTT, Route, Trip};
 use chrono::{DateTime, Utc};
 use futures::stream::TryStreamExt;
 use futures::stream::StreamExt;
 use lazy_static::lazy_static;
+use mongodb::options::ReplaceOptions;
 use rocket::request::FromParam;
 use rocket_db_pools::Connection;
 use serde::{Serialize,Deserialize};
 use mongodb::bson::{doc, Document};
 use tt::{AreaType, TTTrip};
-use crate::{db::BrussData, response::{ApiError, ApiResponse}, routes::map::query::{DBInterface, DBQuery, Queriable, QueryResult}};
+use crate::{db::BrussData, response::ApiResponse, routes::map::query::{DBInterface, DBQuery}};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TripTracking {
@@ -24,6 +26,7 @@ pub struct TripTracking {
 }
 
 impl TripTracking {
+    #[allow(dead_code)]
     fn error(id: String) -> Self {
         Self {
             id,
@@ -51,18 +54,18 @@ impl From<(AreaType, Trip)> for TripTracking {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct TripId(Vec<String>);
+pub struct TripIds(Vec<String>);
 
-impl FromParam<'_> for TripId {
+impl FromParam<'_> for TripIds {
     type Error = ();
 
     fn from_param(param: &'_ str) -> Result<Self, Self::Error> {
-        Ok(TripId(param.split(',').map(str::to_string).collect::<Vec<String>>()))
+        Ok(TripIds(param.split(',').map(str::to_string).collect::<Vec<String>>()))
     }
 
 }
 
-impl DBQuery for TripId {
+impl DBQuery for TripIds {
     fn to_doc(self) -> Document {
         doc!{"id": doc!{"$in": self.0}}
     }
@@ -77,68 +80,78 @@ struct TripUpdate {
 }
 
 impl TripUpdate {
-    async fn get_by_ids(db: &DBInterface, id: Vec<String>) -> Result<Vec<Self>, mongodb::error::Error> {
+    async fn fetch_from_tt(cli: &tt::TTClient, id: String) -> Result<Trip, tt::TTError> {
+        Ok(Trip::from_tt(cli.request_one::<TTTrip>(id).await?))
+    }
+
+    async fn get_by_ids(db: DBInterface, id: Vec<String>) -> Result<Vec<Self>, mongodb::error::Error> {
         let now = Utc::now();
+        // sanitize id vec:
+        let id = id.into_iter().collect::<HashSet<_>>().into_iter().collect::<Vec<_>>();
+
         let coll = db.0.database(CONFIGS.db.get_db())
             .collection::<TripUpdate>("trip_updates");
-        let updates: Vec<TripUpdate> = coll
-            .find(doc!{"id": doc!{"$in": id}}, None)
+        let cached: HashMap<String, TripUpdate> = coll
+            .find(doc!{"id": doc!{"$in": &id}, "updated": doc!{"$gt": (now - Duration::from_secs(30)).timestamp()}}, None)
             .await?
+            .map(|r| r.map(|d| (d.tracking.id.clone(), d)))
             .try_collect()
             .await?;
 
         let cli = CONFIGS.tt.client();
-        let mut out = vec![];
-        let mut updated = vec![];
-        for u in updates.into_iter() {
-            if now - u.updated > chrono::Duration::minutes(5) {
-                let TripUpdate { tracking: t, updated: upd } = u;
-                let trip_new: TTTrip = match cli.request_one(t.id.clone()).await {
-                    Err(_) => {
-                        // keep updated to old date, so it will be updated next time
-                        out.push(TripUpdate {
-                            tracking: TripTracking::error(t.id),
-                            updated: upd,
-                        });
-                        continue;
-                    }
-                    Ok(tt) => tt,
-                };
-                let trip_new = Trip::from_tt(trip_new);
-                updated.push(TripUpdate {
-                    tracking: TripTracking::from((t.area.unwrap(), trip_new)),
-                    updated: now,
-                })
+        let mut routes = HashSet::new();
+        let mut tt_updates = vec![];
+        for i in id.iter() {
+            if !cached.contains_key(i) {
+                let t = Self::fetch_from_tt(&cli, i.clone()).await.map_err(mongodb::error::Error::custom)?;
+                routes.insert(t.route);
+                tt_updates.push(t);
             } else {
-                out.push(u);
+                println!("item ttl: {}s", (cached[i].updated - now).num_seconds() + 30);
             }
         }
+
+        // get needed routes (one usually) from db
+        let areas: HashMap<u16, AreaType> = Route::get_coll(&db.0.database(CONFIGS.db.get_db()))
+            .find(doc!{"id": doc!{"$in": routes.iter().map(|u| *u as i32).collect::<Vec<i32>>()}}, None)
+            .await?
+            .map(|r| r.map(|r| (r.id, r.area_ty)))
+            .try_collect()
+            .await?;
+
+        let db_updates = tt_updates.into_iter()
+            .map(|t| TripTracking::from((areas[&t.route], t)))
+            .map(|t| TripUpdate { tracking: t, updated: now })
+            .collect::<Vec<_>>();
         
-        for u in updated.into_iter() {
+        let r = ReplaceOptions::builder().upsert(true).build();
+        for u in db_updates.iter() {
             coll
-                .replace_one(doc!{"id": u.tracking.id.clone()}, u, None)
-                // .upsert(true)
+                .replace_one(doc!{"id": u.tracking.id.clone()}, u, Some(r.clone()))
                 .await?;
         }
 
-        todo!()
+        let mut output = db_updates;
+        output.extend(cached.into_values());
+        debug_assert_eq!(output.len(), id.len());
+        Ok(output)
     }
 }
 
-#[get("/trip/<trip_id>")]
-pub async fn get_trip(db: Connection<BrussData>, trip_id: TripId) -> ApiResponse<Vec<TripTracking>> {
-    let db = DBInterface(db);
-    let result = Queriable::<QueryResult<Trip>>::query(&db, trip_id.into()).await?.data;
-    let mut out = vec![];
-    for t in result.into_iter() {
-        let ty = match Queriable::<Option<Route>>::query(&db, doc!{"id": t.route as i32}.into()).await? {
-            Some(r) => r.area_ty,
-            None => return ApiResponse::Error(ApiError::NotFound.into()),
-        };
-        out.push(TripTracking::from((ty, t)));
+impl From<TripUpdate> for TripTracking {
+    fn from(value: TripUpdate) -> Self {
+        value.tracking
     }
-    let tot = Some(out.len());
-    ApiResponse::Ok(out.into_iter().map(TripTracking::from).collect(), tot)
+}
+
+#[get("/trip/<trip_ids>")]
+pub async fn get_trip(db: Connection<BrussData>, trip_ids: TripIds) -> ApiResponse<Vec<TripTracking>> {
+    let db = DBInterface(db);
+
+    let trips = TripUpdate::get_by_ids(db, trip_ids.0).await?;
+    let tot = trips.len();
+    
+    ApiResponse::Ok(trips.into_iter().map(|t| t.into()).collect(), Some(tot))
 }
 
 

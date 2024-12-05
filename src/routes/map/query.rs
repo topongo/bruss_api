@@ -30,6 +30,7 @@ pub struct DBInterface(pub Connection<BrussData>);
 pub trait Queriable<T> {
     async fn query(&self, pipeline: Pipeline) -> Result<T, MongoError>;
 
+    #[allow(dead_code)]
     async fn query_db<Q: DBQuery>(&self, query: Q) -> Result<T, MongoError> {
         Self::query(self, Pipeline::from(query)).await
     }
