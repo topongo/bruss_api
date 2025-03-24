@@ -11,6 +11,7 @@ rocket_db_pools = { version = "0.2.0", features = ["mongodb"]}
 reqwest = { version = "0.12.9", features = ["json"] }
 # keep this to 2.8.2 for now: using a newer version breaks rocket_db_pools
 mongodb = { workspace = true }
+bson = { workspace = true }
 serde = "1.0"
 postgres = "0.19.7"
 tokio = "1.36"

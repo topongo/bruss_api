@@ -81,7 +81,7 @@ struct TripUpdate {
 
 impl TripUpdate {
     async fn fetch_from_tt(cli: &tt::TTClient, id: String) -> Result<Trip, tt::TTError> {
-        Ok(Trip::from_tt(cli.request_one::<TTTrip>(id).await?))
+        Ok(Trip::from_tt(cli.request_one::<TTTrip>(id).await?).0)
     }
 
     async fn get_by_ids(db: DBInterface, id: Vec<String>) -> Result<Vec<Self>, mongodb::error::Error> {

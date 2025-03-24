@@ -41,23 +41,15 @@ impl DBQuery for TripQuerySingle {
 }
 
 impl TripQuery {
-    fn to_doc_time_stop(t: NaiveTime, stop: u16) -> Document {
+    fn to_doc_time_stop(t: DateTime<Utc>, stop: u16) -> Document {
         doc!{
             "$expr": {
-                "$or": [
-                    { "$and": [
-                        {"$gt": [{"$hour": {"$toDate": { "$concat": ["1970-01-01T", format!("$times.{}.departure", stop), "Z"]}}}, t.hour() as i32]},
-                    ]},
-                    { "$and": [
-                        {"$eq": [{"$hour": {"$toDate": { "$concat": ["1970-01-01T", format!("$times.{}.departure", stop), "Z"]}}}, t.hour() as i32]},
-                        {"$gte": [{"$minute": {"$toDate": { "$concat": ["1970-01-01T", format!("$times.{}.departure", stop), "Z"]}}}, t.minute() as i32]},
-                    ]}
-                ]
+                "$gt": [{"$toDate": "$departure"}, mongodb::bson::DateTime::from(t)]
             }
         }
     }
 
-    fn to_doc_time_route(t: NaiveTime) -> Document {
+    fn to_doc_time_route(t: DateTime<Utc>) -> Document {
         doc!{
             "$expr": {
                 "$anyElementTrue": {
@@ -80,7 +72,7 @@ impl TripQuery {
         }
     }
 
-    fn _rocket_time_to_chrono_utc(time: Time) -> NaiveTime {
+    fn _rocket_time_to_chrono_utc(time: Time) -> chrono::DateTime<Utc> {
         DateTime::<Utc>::from(
             Local::now().with_time(
                 NaiveTime::from_hms_opt(
@@ -89,16 +81,18 @@ impl TripQuery {
                     time.second().into()
                 ).unwrap()
             ).unwrap()
-        ).time()
+        )
     }
 
     pub fn to_doc_stop(self, stop: u16, ty: AreaType) -> Document {
         let Self { id, time } = self;
         let ty_st: &str = ty.into();
         let mut conds = vec![doc!{"type": ty_st}, doc!{format!("times.{}", stop): doc!{"$exists": true}}];
-        if let Some(time) = time {
-            conds.push(Self::to_doc_time_stop(Self::_rocket_time_to_chrono_utc(time), stop));
-        }
+        let time = match time {
+            Some(t) => Self::_rocket_time_to_chrono_utc(t),
+            None => Utc::now(),
+        };
+        conds.push(Self::to_doc_time_stop(time, stop));
         if let Some(id) = id { conds.push(doc!{"id": id.clone()}) }
         let d = doc!{"$and": conds};
         d
