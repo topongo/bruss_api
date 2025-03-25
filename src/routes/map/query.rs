@@ -88,6 +88,7 @@ impl<T: BrussType + Sync + Unpin + Send> Queriable<Option<T>> for DBInterface {
     }
 }
 
+#[derive(Debug)]
 pub struct QueryResult<T> {
     pub data: Vec<T>,
     pub total: usize,

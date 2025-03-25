@@ -41,7 +41,7 @@ async fn get_trips(
     skip: Option<u32>,
 ) -> ApiResponse<Vec<Trip>> {
     let id = id?.value();
-    let pipeline = Pipeline::from(query?.into_inner().to_doc_route(id as u16))
+    let pipeline = Pipeline::from(query?.into_inner().into_doc_route(id as u16))
         .limit(limit)
         .skip(skip);
     Queriable::<QueryResult<Trip>>::query(&DBInterface(db), pipeline).await.into()

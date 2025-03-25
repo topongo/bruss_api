@@ -39,7 +39,11 @@ async fn get_trips(
     let id = id?.value();
     // query?.into_inner().to_doc_stop(id as u16, area_type?.value().inner);
     // d.insert("type", );
-    let query = query?.into_inner().to_doc_stop(id as u16, area_type?.value().inner);
+    // let query = query?.into_inner().into_doc_stop(id as u16, area_type?.value().inner);
+    let query = doc! {
+        "type": area_type?.value().inner.to_string(),
+        "times": { "$elemMatch": { "stop": id } },
+    };
     let pipeline = Pipeline::new(query)
         .pre_sort(doc!{"$project": {
                 "id": 1,

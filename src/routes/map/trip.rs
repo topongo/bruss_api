@@ -84,7 +84,7 @@ impl TripQuery {
         )
     }
 
-    pub fn to_doc_stop(self, stop: u16, ty: AreaType) -> Document {
+    pub fn into_doc_stop(self, stop: u16, ty: AreaType) -> Document {
         let Self { id, time } = self;
         let ty_st: &str = ty.into();
         let mut conds = vec![doc!{"type": ty_st}, doc!{format!("times.{}", stop): doc!{"$exists": true}}];
@@ -98,7 +98,7 @@ impl TripQuery {
         d
     }
 
-    pub fn to_doc_route(self, route: u16) -> Document {
+    pub fn into_doc_route(self, route: u16) -> Document {
         let Self { id, time } = self;
         let mut conds = vec![doc!{"route": route as i32}];
         if let Some(time) = time {
