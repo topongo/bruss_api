@@ -5,7 +5,7 @@ use tt::AreaType;
 use crate::db::BrussData;
 use mongodb::bson::{Document,doc};
 use rocket_db_pools::Connection;
-use super::{params::{Id, ParamError, ParamQuery}, query::{DBInterface, Queriable, QueryResult}, FromStringFormField};
+use super::{params::{Id, ParamError, ParamQuery}, pipeline::Pipeline, query::{DBInterface, Queriable, QueryResult}, FromStringFormField};
 use serde::{Serialize,Deserialize};
 use crate::response::ApiResponse;
 use std::{error::Error as StdError, fmt::Display, num::ParseIntError};
@@ -121,9 +121,11 @@ async fn get<'a>(
     format: Option<FormatSelect>
 ) -> ApiResponse<SegmentFormatWrapper> {
     let fmt = format.unwrap_or_default();
+
+    let pipeline = Pipeline::from(pairs?.to_doc(area_type?.value()));
     
     let w: SegmentFormatWrapper = (
-        Queriable::<QueryResult<Segment>>::query(&DBInterface(db), pairs?.to_doc(area_type?.value()).into()).await?,
+        Queriable::<QueryResult<Segment>>::query(&DBInterface(db), pipeline.build()).await?,
         fmt
     ).into();
     w.into()

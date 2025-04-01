@@ -4,7 +4,7 @@ use crate::db::BrussData;
 use tt::AreaType;
 use mongodb::bson::{doc, Document};
 use rocket_db_pools::Connection;
-use super::{gen_generic_getters, params::{Id,ParamQuery}, query::{DBInterface, DBQuery}, trip::MultiTripQuery, FromStringFormField};
+use super::{gen_generic_getters, params::{Id,ParamQuery}, query::DBQuery, trip::TripQuery, FromStringFormField};
 use crate::response::ApiResponse;
 use rocket::form::Strict;
 use rocket::request::FromParam;
@@ -24,7 +24,7 @@ impl DBQuery for RouteQuery {
         error!("{self:?}");
         let RouteQuery { ty, area, id } = self;
         // if let Some(id) = id { d.insert("id", id as i32); }
-        if let Some(ty) = ty.into_inner() { d.insert::<_, &'static str>("area_ty", ty.into()); }
+        if let Some(ty) = ty.into_inner() { d.insert("area_ty", ty.into_bson()); }
         if let Some(area) = area.into_inner() { d.insert("area", area as i32); }
         if let Some(id) = id.into_inner() { d.insert("id", doc!{"$in": id.iter().map(|v| *v as i32).collect::<Vec<i32>>()}); }
         d
@@ -42,10 +42,7 @@ async fn get_trips(
     skip: Option<u32>,
 ) -> ApiResponse<Vec<Trip>> {
     let id = id?.value();
-    let pipeline = Pipeline::from(query?.into_inner().into_doc_route(id as u16))
-        .limit(limit)
-        .skip(skip);
-    Queriable::<QueryResult<Trip>>::query(&DBInterface(db), pipeline).await.into()
+    todo!()
 }
 
 lazy_static!{

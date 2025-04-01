@@ -56,7 +56,7 @@ macro_rules! gen_generic_getters {
             db: rocket_db_pools::Connection<crate::BrussData>,
             id: Result<super::params::Id<$id_type>, <super::params::Id<$id_type> as rocket::request::FromParam<'_>>::Error>,
         ) -> crate::response::ApiResponse<$type> {
-            super::query::Queriable::<Option<$type>>::query(&super::query::DBInterface(db), id?.to_doc().into()).await.into()
+            super::query::Queriable::<Option<$type>>::query(&super::query::DBInterface(db), Pipeline::from(id?.to_doc()).build()).await.into()
         }
 
         #[get("/?<limit>&<skip>&<query..>")]

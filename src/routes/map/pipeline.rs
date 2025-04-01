@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use bruss_config::CONFIGS;
 use mongodb::bson::{doc, Document};
 
@@ -17,10 +19,14 @@ impl Pipeline {
         Self {
             find,
             skip: 0,
-            limit: CONFIGS.api.default_limit,
+            limit: Self::default_limit(),
             pre_sort: doc!{},
             sort: doc!{"_id": 1},
         }
+    }
+
+    pub fn default_limit() -> i64 {
+        CONFIGS.api.default_limit
     }
 
     pub fn build(self) -> BuiltPipeline {
@@ -30,7 +36,7 @@ impl Pipeline {
     pub fn limit(mut self, limit: Option<u32>) -> Self {
         if let Some(limit) = limit {
             if !(0..=100).contains(&limit) {
-                self.limit = CONFIGS.api.default_limit;
+                self.limit = Self::default_limit();
             } else {
                 self.limit = limit as i64;
             }
@@ -55,8 +61,8 @@ impl Pipeline {
         self
     }
 
-    pub fn query(self) -> Document {
-        self.find
+    pub fn custom(fetch: Vec<Document>, count: Vec<Document>) -> CustomPipeline {
+        CustomPipeline { fetch, count }
     }
 }
 
@@ -72,9 +78,34 @@ impl From<Document> for Pipeline {
     }
 }
 
+#[derive(Debug)]
+pub(crate) struct CustomPipeline {
+    fetch: Vec<Document>,
+    count: Vec<Document>,
+}
+
+impl Display for CustomPipeline {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "CustomPipeline {{\n\tfetch: [\n{}]\n\tcount: [\n{}]\n}}",
+            self.fetch.iter().map(|d| d.to_string()).collect::<Vec<String>>().join(",\n"),
+            self.count.iter().map(|d| d.to_string()).collect::<Vec<String>>().join(",\n"),
+        )
+    }
+}
+
 pub(crate) struct BuiltPipeline {
     pub count: Vec<Document>,
     pub fetch: Vec<Document>,
+    pub query: Option<Document>,
+}
+
+impl BuiltPipeline {
+    pub fn query(self) -> Document {
+        if self.query.is_none() {
+            panic!("custom pipelines cannot be used to query a single document");
+        }
+        self.query.unwrap()
+    }
 }
 
 impl From<Pipeline> for BuiltPipeline {
@@ -83,7 +114,7 @@ impl From<Pipeline> for BuiltPipeline {
         let mut count = vec![];
         if !value.find.is_empty() {
             fetch.push(doc!{"$match": value.find.clone()});
-            count.push(doc!{"$match": value.find});
+            count.push(doc!{"$match": value.find.clone()});
         }
         if !value.pre_sort.is_empty() {
             fetch.push(value.pre_sort);
@@ -97,8 +128,18 @@ impl From<Pipeline> for BuiltPipeline {
         info!("  Generated pipeline: {:?}", fetch);
         BuiltPipeline {
             count,
-            fetch
+            fetch,
+            query: Some(value.find),
         }
     }
 }
 
+impl From<CustomPipeline> for BuiltPipeline {
+    fn from(value: CustomPipeline) -> Self {
+        BuiltPipeline {
+            count: value.count,
+            fetch: value.fetch,
+            query: None,
+        }
+    }
+}

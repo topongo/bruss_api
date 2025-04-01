@@ -6,7 +6,7 @@ use rocket::time::Time;
 use tt::AreaType;
 use mongodb::bson::{doc, Document};
 use super::query::DBQuery;
-use super::pipeline::Pipeline;
+use super::pipeline::{CustomPipeline, Pipeline};
 
 use super::{gen_generic_getters, FromStringFormField};
 

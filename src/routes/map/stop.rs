@@ -20,7 +20,7 @@ pub struct StopQuery {
 impl DBQuery for StopQuery {
     fn to_doc(self) -> Document {
         let mut d = Document::new();
-        if let Some(ty) = self.ty.into_inner() { d.insert("type", ty.into_bson()); }
+        if let Some(ty) = self.ty.into_inner() { d.insert::<_, &'static str>("type", ty.into_inner().into()); }
         d
     }
 }
