@@ -89,7 +89,7 @@ macro_rules! gen_area_getters {
             limit: Option<u32>
         ) -> crate::response::ApiResponse<$type> {
             let mut d = id?.to_doc();
-            d.insert("type", area_type?.value());
+            d.insert("type", area_type?.value().into_bson());
             Queriable::<Option<$type>>::query(&DBInterface(db), Pipeline::from(d).limit(limit)).await.into()
         }
 
