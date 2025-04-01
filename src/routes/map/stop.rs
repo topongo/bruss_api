@@ -1,8 +1,9 @@
 use bruss_config::CONFIGS;
 use bruss_data::{Route, Stop, Trip};
 use lazy_static::lazy_static;
+use tt::AreaType;
 use crate::db::BrussData;
-use super::{gen_area_getters, params::{Id, ParamQuery}, pipeline::Pipeline, query::{DBInterface, DBQuery, Queriable}, trip::TripQuery, AreaTypeWrapper};
+use super::{gen_area_getters, params::{Id, ParamQuery}, pipeline::Pipeline, query::{DBInterface, DBQuery, Queriable}, trip::TripQuery, FromStringFormField};
 use mongodb::bson::{doc, Document};
 use rocket_db_pools::Connection;
 use crate::response::ApiResponse;
@@ -13,13 +14,13 @@ use rocket::{request::FromParam,form::Strict};
 pub struct StopQuery {
     // id: Strict<Option<u16>>,
     #[field(name = "type")]
-    ty: Strict<Option<AreaTypeWrapper>>,
+    ty: Strict<Option<FromStringFormField<AreaType>>>,
 }
 
 impl DBQuery for StopQuery {
     fn to_doc(self) -> Document {
         let mut d = Document::new();
-        if let Some(ty) = self.ty.into_inner() { d.insert::<_, &'static str>("type", ty.into()); }
+        if let Some(ty) = self.ty.into_inner() { d.insert("type", ty.into_bson()); }
         d
     }
 }
@@ -30,7 +31,7 @@ gen_area_getters!(Stop, StopQuery, u16);
 #[get("/<area_type>/<id>/trips?<limit>&<skip>&<query..>")]
 async fn get_trips(
     db: Connection<BrussData>,
-    area_type: Result<Id<AreaTypeWrapper>, <Id<AreaTypeWrapper> as FromParam<'_>>::Error>, 
+    area_type: Result<Id<FromStringFormField<AreaType>>, <Id<FromStringFormField<AreaType>> as FromParam<'_>>::Error>,
     id: Result<Id<u16>, <Id<u16> as FromParam<'_>>::Error>, 
     query: rocket::form::Result<'_, Strict<TripQuery>>,
     limit: Option<u32>,
@@ -70,13 +71,13 @@ async fn get_trips(
 #[get("/<area_type>/<id>/routes?<limit>&<skip>")]
 async fn get_routes(
     db: Connection<BrussData>,
-    area_type: Result<Id<AreaTypeWrapper>, <Id<AreaTypeWrapper> as FromParam<'_>>::Error>, 
+    area_type: Result<Id<FromStringFormField<AreaType>>, <Id<FromStringFormField<AreaType>> as FromParam<'_>>::Error>,
     id: Result<Id<u16>, <Id<u16> as FromParam<'_>>::Error>,
     limit: Option<u32>,
     skip: Option<u32>,
 ) -> ApiResponse<Vec<Route>> {
     let id = id?.value();
-    let ty: &str = area_type?.value().into();
+    let ty: &str = area_type?.value().into_inner().into();
     
     let route_ids = db
         .database(CONFIGS.db.get_db())

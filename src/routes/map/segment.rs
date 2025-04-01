@@ -1,10 +1,11 @@
 use bruss_data::{PolySegment, Segment};
 use lazy_static::lazy_static;
 use rocket::request::FromParam;
+use tt::AreaType;
 use crate::db::BrussData;
 use mongodb::bson::{Document,doc};
 use rocket_db_pools::Connection;
-use super::{params::{Id, ParamError, ParamQuery}, query::{DBInterface, Queriable, QueryResult}, AreaTypeWrapper};
+use super::{params::{Id, ParamError, ParamQuery}, query::{DBInterface, Queriable, QueryResult}, FromStringFormField};
 use serde::{Serialize,Deserialize};
 use crate::response::ApiResponse;
 use std::{error::Error as StdError, fmt::Display, num::ParseIntError};
@@ -45,7 +46,7 @@ impl<'a> FromParam<'a> for FormatSelect {
 struct StopPairs(Vec<(u16, u16)>);
 
 impl StopPairs {
-    fn to_doc(self, ty: AreaTypeWrapper) -> Document {
+    fn to_doc(self, ty: FromStringFormField<AreaType>) -> Document {
         let mut d = Document::new();
         let Self(pairs) = self;
 
@@ -115,7 +116,7 @@ impl<'a> FromParam<'a> for StopPairs {
 #[get("/<area_type>/<pairs>?<format>")]
 async fn get<'a>(
     db: Connection<BrussData>,
-    area_type: Result<Id<AreaTypeWrapper>, <Id<AreaTypeWrapper> as FromParam<'_>>::Error>,
+    area_type: Result<Id<FromStringFormField<AreaType>>, <Id<FromStringFormField<AreaType>> as FromParam<'_>>::Error>,
     pairs: Result<StopPairs, ParamError<StopPairsParseError>>,
     format: Option<FormatSelect>
 ) -> ApiResponse<SegmentFormatWrapper> {

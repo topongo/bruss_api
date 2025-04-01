@@ -8,7 +8,7 @@ use mongodb::bson::{doc, Document};
 use super::query::DBQuery;
 use super::pipeline::Pipeline;
 
-use super::gen_generic_getters;
+use super::{gen_generic_getters, FromStringFormField};
 
 #[derive(FromForm)]
 pub struct TripQuery {

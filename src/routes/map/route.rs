@@ -1,9 +1,10 @@
 use bruss_data::{Route, Trip};
 use lazy_static::lazy_static;
 use crate::db::BrussData;
+use tt::AreaType;
 use mongodb::bson::{doc, Document};
 use rocket_db_pools::Connection;
-use super::{gen_generic_getters,trip::TripQuery,AreaTypeWrapper,query::{Queriable,DBInterface,DBQuery},params::{Id,ParamQuery}};
+use super::{gen_generic_getters, params::{Id,ParamQuery}, query::{DBInterface, DBQuery}, trip::MultiTripQuery, FromStringFormField};
 use crate::response::ApiResponse;
 use rocket::form::Strict;
 use rocket::request::FromParam;
@@ -12,7 +13,7 @@ use super::pipeline::Pipeline;
 #[derive(FromForm,Debug)]
 pub struct RouteQuery {
     #[field(name = "type")]
-    ty: Strict<Option<AreaTypeWrapper>>,
+    ty: Strict<Option<FromStringFormField<AreaType>>>,
     id: Strict<Option<Vec<u16>>>,
     area: Strict<Option<u16>>,
 }

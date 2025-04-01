@@ -1,9 +1,9 @@
 use serde::Serialize;
 use rocket::request::FromParam;
-use super::AreaTypeWrapper;
-use tt::AreaTypeParseError;
+use super::FromStringFormField;
+use tt::AreaType;
 use super::query::DBQuery;
-use std::num::ParseIntError;
+use std::{num::ParseIntError, str::FromStr};
 use mongodb::bson::Document;
 
 #[derive(Debug)]
@@ -28,13 +28,13 @@ impl<'a> FromParam<'a> for Id<u16> {
     }
 }
 
-impl<'a> FromParam<'a> for Id<AreaTypeWrapper> {
-    type Error = ParamError<AreaTypeParseError>;
+impl<'a, T> FromParam<'a> for Id<FromStringFormField<T>> where T: FromStr + Serialize, T::Err: std::error::Error {
+    type Error = ParamError<T::Err>;
 
     fn from_param(param: &'a str) -> Result<Self, Self::Error> {
         param.parse()
-            .map(|v| Id { inner: AreaTypeWrapper { inner: v } })
-            .map_err(|e| e.into())
+            .map(|v| Id { inner: FromStringFormField { inner: v } })
+            .map_err(|e| ParamError(e))
     }
 }
 
@@ -70,17 +70,17 @@ impl DBQuery for Id<u16> {
     }
 }
 
-impl ParamQuery<AreaTypeWrapper> for Id<AreaTypeWrapper> {
+impl ParamQuery<FromStringFormField<AreaType>> for Id<FromStringFormField<AreaType>> {
     fn key(&self) -> &'static str {
         "type"
     }
 
-    fn value(self) -> AreaTypeWrapper {
+    fn value(self) -> FromStringFormField<AreaType> {
         self.inner
     }
 }
 
-impl DBQuery for Id<AreaTypeWrapper> {
+impl DBQuery for Id<FromStringFormField<AreaType>> {
     fn to_doc(self) -> Document {
         let mut d = Document::new();
         d.insert::<_,  &'static str>(self.key(), self.value().inner.into());

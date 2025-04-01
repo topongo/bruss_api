@@ -14,35 +14,36 @@ pub mod pipeline;
 // pub use trip::{get_trips_route,get_trips_stop};
 // pub use path::get_path;
 
-use mongodb::bson::Bson;
-use tt::AreaType;
+use std::str::FromStr;
+
+use bson::Bson;
 use rocket::form::FromFormField;
 use rocket::form::Error;
 use serde::{Deserialize,Serialize};
 
 #[derive(Deserialize,Serialize,Clone,Debug)]
 #[serde(transparent)]
-pub struct AreaTypeWrapper {
-    inner: AreaType
+pub struct FromStringFormField<T> where T: FromStr {
+    inner: T
 }
 
-impl FromFormField<'_> for AreaTypeWrapper {
+impl<T> FromFormField<'_> for FromStringFormField<T> where T: FromStr + Send + Sync {
     fn from_value(field: rocket::form::ValueField<'_>) -> rocket::form::Result<'_,Self> {
         field.value.parse()
-            .map_err(|_| Error::validation("could be either \"u\" or \"e\"").into())
-            .map(|v| AreaTypeWrapper { inner: v }) 
+            .map_err(|_| Error::validation(format!("invalid conversion for field {}: {}", field.name, field.value)).into())
+            .map(|v| FromStringFormField { inner: v })
     }
 }
 
-impl Into<&'static str> for AreaTypeWrapper {
-    fn into(self) -> &'static str {
-        self.inner.into()
+impl<T> FromStringFormField<T> where T: FromStr {
+    pub fn into_inner(self) -> T {
+        self.inner
     }
 }
 
-impl Into<Bson> for AreaTypeWrapper {
-    fn into(self) -> Bson {
-        <AreaType as Into<&str>>::into(self.inner).into()
+impl<T> FromStringFormField<T> where T: FromStr + ToString {
+    pub fn into_bson(self) -> mongodb::bson::Bson {
+        Bson::String(self.inner.to_string())
     }
 }
 
@@ -83,7 +84,7 @@ macro_rules! gen_area_getters {
         #[get("/<area_type>/<id>?<limit>")]
         pub async fn get(
             db: rocket_db_pools::Connection<crate::BrussData>, 
-            area_type: Result<super::params::Id<super::AreaTypeWrapper>, <super::params::Id<super::AreaTypeWrapper> as rocket::request::FromParam<'_>>::Error>,
+            area_type: Result<super::params::Id<super::FromStringFormField<AreaType>>, <super::params::Id<super::FromStringFormField<AreaType>> as rocket::request::FromParam<'_>>::Error>,
             id: Result<super::params::Id<$id_type>, <super::params::Id<$id_type> as rocket::request::FromParam<'_>>::Error>,
             limit: Option<u32>
         ) -> crate::response::ApiResponse<$type> {
