@@ -3,7 +3,7 @@ use bruss_data::{Route, Stop, Trip};
 use lazy_static::lazy_static;
 use tt::AreaType;
 use crate::db::BrussData;
-use super::{gen_area_getters, params::{Id, ParamQuery}, pipeline::Pipeline, query::{DBInterface, DBQuery, Queriable}, trip::TripQuery, FromStringFormField};
+use super::{gen_area_getters, params::{Id, ParamQuery}, pipeline::Pipeline, query::{DBInterface, DBQuery, UniformQueryable}, trip::MultiTripQuery, FromStringFormField};
 use mongodb::bson::{doc, Document};
 use rocket_db_pools::Connection;
 use crate::response::ApiResponse;
@@ -31,47 +31,25 @@ gen_area_getters!(Stop, StopQuery, u16);
 #[get("/<area_type>/<id>/trips?<limit>&<skip>&<query..>")]
 async fn get_trips(
     db: Connection<BrussData>,
-    area_type: Result<Id<FromStringFormField<AreaType>>, <Id<FromStringFormField<AreaType>> as FromParam<'_>>::Error>,
+    area_type: Result<Id<FromStringFormField<AreaType>>, <Id<FromStringFormField<AreaType>> as FromParam<'_>>::Error>, 
     id: Result<Id<u16>, <Id<u16> as FromParam<'_>>::Error>, 
-    query: rocket::form::Result<'_, Strict<TripQuery>>,
+    query: rocket::form::Result<'_, Strict<MultiTripQuery>>,
     limit: Option<u32>,
     skip: Option<u32>,
 ) -> ApiResponse<Vec<Trip>> {
     let id = id?.value();
-    // query?.into_inner().to_doc_stop(id as u16, area_type?.value().inner);
-    // d.insert("type", );
-    // let query = query?.into_inner().into_doc_stop(id as u16, area_type?.value().inner);
-    let query = doc! {
-        "type": area_type?.value().inner.to_string(),
-        "times": { "$elemMatch": { "stop": id } },
-    };
-    let pipeline = Pipeline::new(query)
-        .pre_sort(doc!{"$project": {
-                "id": 1,
-                "delay": 1,
-                "direction": 1,
-                "next_stop": 1,
-                "last_stop": 1,
-                "bus_id": 1,
-                "route": 1,
-                "headsign": 1,
-                "path": 1,
-                "times": 1,
-                "type": 1,
-                "sequence": 1,
-                "arrival_time": format!("$times.{}.arrival", id), 
-            }}
-        )
-        .limit(limit)
-        .skip(skip)
-        .sort(doc!{"arrival_time": 1});
-    Queriable::<QueryResult<Trip>>::query(&DBInterface(db), pipeline).await.into()
+
+    let pipeline = query?
+        .into_inner()
+        .into_pipeline_stop(id as u16, area_type?.value().into_inner(), skip, limit);
+
+    UniformQueryable::<Trip>::query(&DBInterface(db), pipeline).await.into()
 }
 
 #[get("/<area_type>/<id>/routes?<limit>&<skip>")]
 async fn get_routes(
     db: Connection<BrussData>,
-    area_type: Result<Id<FromStringFormField<AreaType>>, <Id<FromStringFormField<AreaType>> as FromParam<'_>>::Error>,
+    area_type: Result<Id<FromStringFormField<AreaType>>, <Id<FromStringFormField<AreaType>> as FromParam<'_>>::Error>, 
     id: Result<Id<u16>, <Id<u16> as FromParam<'_>>::Error>,
     limit: Option<u32>,
     skip: Option<u32>,
@@ -85,7 +63,7 @@ async fn get_routes(
         .distinct("route", doc!{ "type": ty, "$or": [ { format!("times.{}", id): { "$exists": true } }, { format!("times.{}", id): { "$exists": true } } ] }, None)
         .await?;
         
-    Queriable::<QueryResult<Route>>::query(&DBInterface(db), Pipeline::new(doc!{"id": {"$in": route_ids}}).limit(limit).skip(skip)).await.into()
+    UniformQueryable::<Route>::query(&DBInterface(db), Pipeline::new(doc!{"id": {"$in": route_ids}}).limit(limit).skip(skip)).await.into()
 }
 
 lazy_static!{

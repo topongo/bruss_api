@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use bruss_config::CONFIGS;
-use bruss_data::{BrussType, FromTT, Route, Trip};
+use bruss_data::{BrussType, Route, Trip};
 use chrono::{DateTime, Utc};
 use futures::stream::TryStreamExt;
 use futures::stream::StreamExt;

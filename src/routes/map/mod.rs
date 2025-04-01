@@ -49,14 +49,12 @@ impl<T> FromStringFormField<T> where T: FromStr + ToString {
 
 macro_rules! gen_generic_getters {
     ($type:ident, $query:ty, $id_type:ident) => {
-        use crate::routes::map::query::QueryResult;
-
         #[get("/<id>")]
         pub async fn get(
             db: rocket_db_pools::Connection<crate::BrussData>,
             id: Result<super::params::Id<$id_type>, <super::params::Id<$id_type> as rocket::request::FromParam<'_>>::Error>,
         ) -> crate::response::ApiResponse<$type> {
-            super::query::Queriable::<Option<$type>>::query(&super::query::DBInterface(db), Pipeline::from(id?.to_doc()).build()).await.into()
+            super::query::UniformQueryable::<$type>::query_single(&super::query::DBInterface(db), Pipeline::from(id?.to_doc()).build()).await.into()
         }
 
         #[get("/?<limit>&<skip>&<query..>")]
@@ -67,7 +65,7 @@ macro_rules! gen_generic_getters {
             skip: Option<u32>,
         ) -> crate::response::ApiResponse<Vec<$type>> {
             println!("id: {:?}", query);
-            super::query::Queriable::<QueryResult<$type>>::query(
+            super::query::UniformQueryable::<$type>::query(
                 &super::query::DBInterface(db), 
                 Pipeline::from(query?.into_inner())
                     .limit(limit)
@@ -79,8 +77,6 @@ macro_rules! gen_generic_getters {
 
 macro_rules! gen_area_getters {
     ($type:ident, $query:ty, $id_type:ident) => {
-        use crate::routes::map::query::QueryResult;
-
         #[get("/<area_type>/<id>?<limit>")]
         pub async fn get(
             db: rocket_db_pools::Connection<crate::BrussData>, 
@@ -90,7 +86,7 @@ macro_rules! gen_area_getters {
         ) -> crate::response::ApiResponse<$type> {
             let mut d = id?.to_doc();
             d.insert("type", area_type?.value().into_bson());
-            Queriable::<Option<$type>>::query(&DBInterface(db), Pipeline::from(d).limit(limit)).await.into()
+            UniformQueryable::<$type>::query_single(&DBInterface(db), Pipeline::from(d).limit(limit)).await.into()
         }
 
         #[get("/?<skip>&<limit>&<query..>")]
@@ -100,7 +96,7 @@ macro_rules! gen_area_getters {
             skip: Option<u32>,
             limit: Option<u32>,
         ) -> ApiResponse<Vec<$type>> {
-            Queriable::<QueryResult<$type>>::query(&DBInterface(db), Pipeline::from(query?.into_inner()).skip(skip).limit(limit)).await.into()
+            UniformQueryable::<$type>::query(&DBInterface(db), Pipeline::from(query?.into_inner()).skip(skip).limit(limit)).await.into()
         }
     };
 }

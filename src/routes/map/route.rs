@@ -1,10 +1,10 @@
-use bruss_data::{Route, Trip};
+use bruss_data::{Route, Schedule};
 use lazy_static::lazy_static;
-use crate::db::BrussData;
 use tt::AreaType;
+use crate::{db::BrussData, routes::map::{query::Queryable, trip::TripDeparture}};
 use mongodb::bson::{doc, Document};
 use rocket_db_pools::Connection;
-use super::{gen_generic_getters, params::{Id,ParamQuery}, query::DBQuery, trip::TripQuery, FromStringFormField};
+use super::{gen_generic_getters, params::{Id,ParamQuery}, query::{DBInterface, DBQuery}, trip::MultiTripQuery, FromStringFormField};
 use crate::response::ApiResponse;
 use rocket::form::Strict;
 use rocket::request::FromParam;
@@ -37,12 +37,18 @@ gen_generic_getters!(Route, RouteQuery, u16);
 async fn get_trips(
     db: Connection<BrussData>,
     id: Result<Id<u16>, <Id<u16> as FromParam<'_>>::Error>, 
-    query: rocket::form::Result<'_, Strict<TripQuery>>,
+    query: rocket::form::Result<'_, Strict<MultiTripQuery>>,
     limit: Option<u32>,
     skip: Option<u32>,
-) -> ApiResponse<Vec<Trip>> {
+) -> ApiResponse<Vec<TripDeparture>> {
     let id = id?.value();
-    todo!()
+
+    let pipeline = query?
+        .into_inner()
+        .into_pipeline_route(id as u16, skip, limit);
+    println!("Pipeline: {pipeline}");
+
+    Queryable::<TripDeparture, Schedule>::query(&DBInterface(db), pipeline).await.into()
 }
 
 lazy_static!{

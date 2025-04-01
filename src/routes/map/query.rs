@@ -1,12 +1,12 @@
 use futures::{StreamExt, TryStreamExt};
-use mongodb::bson::Document;
+use mongodb::{bson::Document, Collection};
 use rocket_db_pools::Connection;
 use bruss_config::CONFIGS;
-use bruss_data::BrussType;
-use serde::Deserialize;
+use bruss_data::{BrussType, Schedule};
+use serde::{de::DeserializeOwned, Deserialize};
 use crate::db::BrussData;
 use mongodb::error::Error as MongoError;
-use super::pipeline::{BuiltPipeline, Pipeline};
+use super::{pipeline::{BuiltPipeline, Pipeline}, trip::TripDeparture};
 
 /// Allow struct to be converted to a mongodb query.
 pub trait DBQuery {
@@ -25,24 +25,37 @@ impl DBQuery for RawDBQuery {
 /// Interface for routes, to query the database.
 pub struct DBInterface(pub Connection<BrussData>);
 
-pub trait Queriable<T> {
-    async fn query(&self, pipeline: impl Into<BuiltPipeline>) -> Result<T, MongoError>;
+/// Interface for a database interface that can be used to obtain a specific collection of data
+/// implementing the BrussType trait.
+pub trait Collectable {
+    // fn get_coll<T: BrussType>(&self) -> Collection<T>;
+    fn get_coll_raw<T: BrussType, O>(&self) -> Collection<O>;
+}
 
-    #[allow(dead_code)]
-    async fn query_db<Q: DBQuery>(&self, query: Q) -> Result<T, MongoError> {
-        Self::query(self, Pipeline::from(query)).await
+impl Collectable for DBInterface {
+    // fn get_coll<T: BrussType>(&self) -> Collection<T> {
+    //     T::get_coll(&self.0.database(CONFIGS.db.get_db()))
+    // }
+    fn get_coll_raw<T: BrussType, O>(&self) -> Collection<O> {
+        self.0.database(CONFIGS.db.get_db()).collection::<O>(T::TYPE.collection())
     }
 }
 
-#[derive(Deserialize)]
-struct CountResult {
-    count: i64,
-}
-
-impl<T: BrussType> Queriable<QueryResult<T>> for DBInterface {
+/// Trait for querying the database, using a type `T` for data output and a type `X` for the input
+/// collection, mainly used for cross-collection queries.
+///
+/// For example: using the collection `UserPermissions` to get a list of `User` objects.
+///
+/// This can and must be also reflective: implementation of `Queryable<T, T>` for a type will
+/// grant it the ability to query the collection of type `T` and getting results of type `T`.
+pub trait Queryable<T, X>: Collectable
+where
+    T: DeserializeOwned + Sync + Unpin + Send,
+    X: BrussType + Sync + Unpin + Send,
+{
     async fn query(&self, pipeline: impl Into<BuiltPipeline>) -> Result<QueryResult<T>, MongoError> {
-        let pipeline = pipeline.into();
-        let count = match self.0.database(CONFIGS.db.get_db()).collection::<Vec<i64>>(T::TYPE.collection())
+        let pipeline: BuiltPipeline = pipeline.into();
+        let count = match self.get_coll_raw::<X, Vec<i64>>()
             .aggregate(pipeline.count, None)
             .await
         {
@@ -56,7 +69,7 @@ impl<T: BrussType> Queriable<QueryResult<T>> for DBInterface {
             },
             Err(e) => return Err(e)
         } as usize;
-        match T::get_coll(&self.0.database(CONFIGS.db.get_db()))
+        match self.get_coll_raw::<X, T>()
             .aggregate(pipeline.fetch, None)
             .await
         {
@@ -73,14 +86,50 @@ impl<T: BrussType> Queriable<QueryResult<T>> for DBInterface {
             Err(e) => Err(e)
         }
     }
-}
 
-impl<T: BrussType + Sync + Unpin + Send> Queriable<Option<T>> for DBInterface {
-    async fn query(&self, pipeline: impl Into<BuiltPipeline>) -> Result<Option<T>, MongoError> {
-        T::get_coll(&self.0.database(CONFIGS.db.get_db()))
+    async fn query_single(&self, pipeline: impl Into<BuiltPipeline>) -> Result<Option<T>, MongoError> {
+        self.get_coll_raw::<X, T>()
             .find_one(pipeline.into().query(), None)
             .await
     }
+
+    #[allow(dead_code)]
+    async fn query_db<Q: DBQuery>(&self, query: Q) -> Result<QueryResult<T>, MongoError> {
+        Self::query(self, Pipeline::from(query)).await
+    }
+}
+
+/// Trait for querying the database, in the specific case in which the collection type and the
+/// output type are the same.
+/// It's defined as `trait UniformQueryable<T>: Queryable<T, T>` for allowing this.
+///
+/// Automatically implemented for any type `T` implementing the `BrussType` trait (and also
+/// `Sync`, `Unpin` and `Send` for async purposes).
+///
+/// This trait shadows the `query` and `query_single` methods of the `CrossQueryable` trait, so
+/// that an object that implements `Queryable<T>` can be used directly instead of using a trait
+/// object.
+pub trait UniformQueryable<T>: Queryable<T, T> where T: BrussType + Sync + Unpin + Send {
+    async fn query(&self, pipeline: impl Into<BuiltPipeline>) -> Result<QueryResult<T>, MongoError> {
+        Queryable::query(self, pipeline).await
+    }
+
+    async fn query_single(&self, pipeline: impl Into<BuiltPipeline>) -> Result<Option<T>, MongoError> {
+        Queryable::query_single(self, pipeline).await
+    }
+}
+
+/// Reflective implementation of the `Queryable` trait for any type `T` implementing BrussType.
+impl<T: BrussType + Sync + Unpin + Send> Queryable<T, T> for DBInterface {}
+impl<T: BrussType + Sync + Unpin + Send> UniformQueryable<T> for DBInterface {}
+
+/// Implementation of the `CrossQueryable` trait for `DBInterface` in types `Schedule` with return
+/// type `Trip`.
+impl Queryable<TripDeparture, Schedule> for DBInterface {}
+
+#[derive(Deserialize)]
+struct CountResult {
+    count: i64,
 }
 
 #[derive(Debug)]
