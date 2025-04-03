@@ -14,6 +14,7 @@ pub struct Pipeline {
     sort: Document,
 }
 
+#[allow(dead_code)]
 impl Pipeline {
     pub fn new(find: Document) -> Self {
         Self {
