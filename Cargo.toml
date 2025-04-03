@@ -22,4 +22,4 @@ chrono = { version = "^0.4", features = ["serde"] }
 bruss_config = { path = "../../config" }
 bruss_data = { path = "../../data", features = ["db"] }
 tt = { path = "../../tt" }
-
+log = "0.4.27"
