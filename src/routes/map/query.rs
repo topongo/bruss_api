@@ -4,6 +4,7 @@ use rocket_db_pools::Connection;
 use bruss_config::CONFIGS;
 use bruss_data::{BrussType, Schedule};
 use serde::{de::DeserializeOwned, Deserialize};
+use tokio::time::Instant;
 use crate::db::BrussData;
 use mongodb::error::Error as MongoError;
 use super::{pipeline::{BuiltPipeline, Pipeline}, trip::TripDeparture};
@@ -55,6 +56,7 @@ where
 {
     async fn query(&self, pipeline: impl Into<BuiltPipeline>) -> Result<QueryResult<T>, MongoError> {
         let pipeline: BuiltPipeline = pipeline.into();
+        let start = Instant::now();
         let count = match self.get_coll_raw::<X, Vec<i64>>()
             .aggregate(pipeline.count, None)
             .await
@@ -69,7 +71,12 @@ where
             },
             Err(e) => return Err(e)
         } as usize;
-        match self.get_coll_raw::<X, T>()
+        let elapsed = start.elapsed();
+        if elapsed.as_secs_f32() > 0.5 {
+            log::warn!("count stage took {:?}", start.elapsed());
+        }
+        let start = Instant::now();
+        let r = match self.get_coll_raw::<X, T>()
             .aggregate(pipeline.fetch, None)
             .await
         {
@@ -84,7 +91,12 @@ where
                     .map_err(MongoError::from)
             }
             Err(e) => Err(e)
+        };
+        let elapsed = start.elapsed();
+        if elapsed.as_secs_f32() > 0.5 {
+            log::warn!("fetch stage took {:?}", start.elapsed());
         }
+        r
     }
 
     async fn query_single(&self, pipeline: impl Into<BuiltPipeline>) -> Result<Option<T>, MongoError> {
