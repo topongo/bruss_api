@@ -1,7 +1,7 @@
 use bruss_data::{Route, Schedule};
 use lazy_static::lazy_static;
 use tt::AreaType;
-use crate::{db::BrussData, routes::map::{query::Queryable, trip::TripDeparture}};
+use crate::{db::BrussData, routes::map::{query::Queryable, trip::TripInRoute}};
 use mongodb::bson::{doc, Document};
 use rocket_db_pools::Connection;
 use super::{gen_generic_getters, params::{Id,ParamQuery}, query::{DBInterface, DBQuery}, trip::MultiTripQuery, FromStringFormField};
@@ -40,7 +40,7 @@ async fn get_trips(
     query: rocket::form::Result<'_, Strict<MultiTripQuery>>,
     limit: Option<u32>,
     skip: Option<u32>,
-) -> ApiResponse<Vec<TripDeparture>> {
+) -> ApiResponse<Vec<TripInRoute>> {
     let id = id?.value();
 
     let pipeline = query?
@@ -48,7 +48,7 @@ async fn get_trips(
         .into_pipeline_route(id as u16, skip, limit);
     println!("Pipeline: {pipeline}");
 
-    Queryable::<TripDeparture, Schedule>::query(&DBInterface(db), pipeline).await.into()
+    Queryable::<TripInRoute, Schedule>::query(&DBInterface(db), pipeline).await.into()
 }
 
 lazy_static!{

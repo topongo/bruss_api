@@ -1,9 +1,9 @@
 use bruss_config::CONFIGS;
-use bruss_data::{Route, Stop, Trip};
+use bruss_data::{Route, Schedule, Stop};
 use lazy_static::lazy_static;
 use tt::AreaType;
 use crate::db::BrussData;
-use super::{gen_area_getters, params::{Id, ParamQuery}, pipeline::Pipeline, query::{DBInterface, DBQuery, UniformQueryable}, trip::MultiTripQuery, FromStringFormField};
+use super::{gen_area_getters, params::{Id, ParamQuery}, pipeline::Pipeline, query::{DBInterface, DBQuery, Queryable, UniformQueryable}, trip::{MultiTripQuery, TripAtStop}, FromStringFormField};
 use mongodb::bson::{doc, Document};
 use rocket_db_pools::Connection;
 use crate::response::ApiResponse;
@@ -36,14 +36,16 @@ async fn get_trips(
     query: rocket::form::Result<'_, Strict<MultiTripQuery>>,
     limit: Option<u32>,
     skip: Option<u32>,
-) -> ApiResponse<Vec<Trip>> {
+) -> ApiResponse<Vec<TripAtStop>> {
     let id = id?.value();
 
     let pipeline = query?
         .into_inner()
         .into_pipeline_stop(id as u16, area_type?.value().into_inner(), skip, limit);
 
-    UniformQueryable::<Trip>::query(&DBInterface(db), pipeline).await.into()
+    println!("Pipeline: {}", pipeline);
+
+    Queryable::<TripAtStop, Schedule>::query(&DBInterface(db), pipeline).await.into()
 }
 
 #[get("/<area_type>/<id>/routes?<limit>&<skip>")]
