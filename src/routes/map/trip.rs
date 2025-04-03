@@ -1,5 +1,5 @@
 use bruss_data::{Direction, Trip};
-use chrono::{DateTime, Local, NaiveTime, Utc};
+use chrono::{DateTime, Local, NaiveTime, TimeDelta, Utc};
 use lazy_static::lazy_static;
 use rocket::form::FromForm;
 use rocket::time::Time;
@@ -59,44 +59,33 @@ fn rocket_time_to_chrono_utc(time: Time) -> chrono::DateTime<Utc> {
 
 impl MultiTripQuery {
     pub fn into_pipeline_route(self, route: u16, skip: Option<u32>, limit: Option<u32>) -> CustomPipeline {
-    // let q = vec![ 
-    //     doc!{"$match": {"$and": [
-    //         // filter by area
-    //         {"hints.type": area.to_string()}, 
-    //         // filter by route
-    //         {"hints.route": route as i32}, 
-    //         // filter by general departure
-    //         {"departure": {"$gte": time}},
-    //     ]}}, 
-    //     // sort by general departure
-    //     doc!{"$sort": {"departure": 1}},
-    //     // lookup trip
-    //     doc!{"$lookup": {"from": "trips","localField": "id","foreignField": "id","as": "trip"}},
-    //     // strip $lookup result
-    //     doc!{"$unwind": "$trip"}, 
-    //     // hard limit results
-    //     doc!{"$limit": 100},
-    //     // project only the necessary fields
-    //     doc!{"$project": {"_id": 0,"trip": 1,"departure": 1}},
-    // ];
-        let Self { time, .. } = self;
+        let Self { time, direction } = self;
         let time = match time {
             Some(t) => rocket_time_to_chrono_utc(t),
             None => Utc::now(),
         };
-        let match_stage = doc!{"$match": {"$and": [
-            // filter by route
-            {"hints.route": route as i32}, 
-            // filter by general departure
-            {"departure": {"$gte": time}},
-        ]}};
+
+        let mut conds = vec![doc!{"hints.route": route as i32}];
+        conds.push(doc!{"$expr": {"$lte": [
+                // check that the current time is lower than...
+                time, 
+                // the general arrival time of the trip
+                "$arrival",
+        ]}});
+        if let Some(direction) = direction {
+            conds.push(doc!{"hints.direction": direction.into_bson()});
+        }
+
+        let limit = limit.map(|v| v as i64).unwrap_or_else(Pipeline::default_limit);
+        let skip = skip.map(|v| v as i64).unwrap_or(0);
+
+        let match_stage = doc!{"$match": {"$and": conds}};
         let sort_stage = doc!{"$sort": {"departure": 1}};
         let lookup_stage = doc!{"$lookup": {"from": "trips","localField": "id","foreignField": "id","as": "trip"}};
         let unwind_stage = doc!{"$unwind": "$trip"};
-        let skip_stage = doc!{"$skip": skip.map(|v| v as i64).unwrap_or(0)};
-        let limit_stage = doc!{"$limit": limit.map(|v| v as i64).unwrap_or_else(Pipeline::default_limit)};
+        let skip_stage = doc!{"$skip": skip};
+        let limit_stage = doc!{"$limit": limit};
         let project_stage = doc!{"$project": {"_id": 0,"trip": 1,"departure": 1}};
-        // let project_stage = doc!{"$replaceRoot": {"newRoot": "$trip"}};
         let count_stage = doc!{"$count": "count"};
 
         // for counting we only need the match and the count stage:
