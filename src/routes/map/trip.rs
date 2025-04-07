@@ -30,20 +30,15 @@ impl DBQuery for TripQuerySingle {
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct TripInRoute {
+pub struct TripCross {
     trip: Trip,
     #[serde(deserialize_with = "bson::serde_helpers::deserialize_chrono_datetime_from_bson_datetime")]
     departure: DateTime<Utc>,
+    arrival_at_stop: Option<DateTimeUtcWrapper>,
 }
 
-#[derive(Deserialize, Serialize)]
-pub struct TripAtStop {
-    trip: Trip,
-    #[serde(deserialize_with = "bson::serde_helpers::deserialize_chrono_datetime_from_bson_datetime")]
-    departure: DateTime<Utc>,
-    #[serde(deserialize_with = "bson::serde_helpers::deserialize_chrono_datetime_from_bson_datetime")]
-    arrival_at_stop: DateTime<Utc>,
-}
+#[derive(Serialize, Deserialize)]
+struct DateTimeUtcWrapper(#[serde(deserialize_with = "bson::serde_helpers::deserialize_chrono_datetime_from_bson_datetime")] DateTime<Utc>);
 
 fn rocket_time_to_chrono_utc(time: Time) -> chrono::DateTime<Utc> {
     DateTime::<Utc>::from(

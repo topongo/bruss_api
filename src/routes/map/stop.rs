@@ -3,7 +3,7 @@ use bruss_data::{Route, Schedule, Stop};
 use lazy_static::lazy_static;
 use tt::AreaType;
 use crate::db::BrussData;
-use super::{gen_area_getters, params::{Id, ParamQuery}, pipeline::Pipeline, query::{DBInterface, DBQuery, Queryable, UniformQueryable}, trip::{MultiTripQuery, TripAtStop}, FromStringFormField};
+use super::{gen_area_getters, params::{Id, ParamQuery}, pipeline::Pipeline, query::{DBInterface, DBQuery, Queryable, UniformQueryable}, trip::{MultiTripQuery, TripCross}, FromStringFormField};
 use mongodb::bson::{doc, Document};
 use rocket_db_pools::Connection;
 use crate::response::ApiResponse;
@@ -36,7 +36,7 @@ async fn get_trips(
     query: rocket::form::Result<'_, Strict<MultiTripQuery>>,
     limit: Option<u32>,
     skip: Option<u32>,
-) -> ApiResponse<Vec<TripAtStop>> {
+) -> ApiResponse<Vec<TripCross>> {
     let id = id?.value();
 
     let pipeline = query?
@@ -45,7 +45,7 @@ async fn get_trips(
 
     println!("Pipeline: {}", pipeline);
 
-    Queryable::<TripAtStop, Schedule>::query(&DBInterface(db), pipeline).await.into()
+    Queryable::<TripCross, Schedule>::query(&DBInterface(db), pipeline).await.into()
 }
 
 #[get("/<area_type>/<id>/routes?<limit>&<skip>")]

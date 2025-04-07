@@ -7,7 +7,7 @@ use serde::{de::DeserializeOwned, Deserialize};
 use tokio::time::Instant;
 use crate::db::BrussData;
 use mongodb::error::Error as MongoError;
-use super::{pipeline::{BuiltPipeline, Pipeline}, trip::{TripAtStop, TripInRoute}};
+use super::{pipeline::{BuiltPipeline, Pipeline}, trip::TripCross};
 
 /// Allow struct to be converted to a mongodb query.
 pub trait DBQuery {
@@ -136,9 +136,9 @@ impl<T: BrussType + Sync + Unpin + Send> Queryable<T, T> for DBInterface {}
 impl<T: BrussType + Sync + Unpin + Send> UniformQueryable<T> for DBInterface {}
 
 /// Implementation of the `CrossQueryable` trait for `DBInterface` in types `Schedule` with return
-/// type `TripInRoute` and `TripAtStop`.
-impl Queryable<TripInRoute, Schedule> for DBInterface {}
-impl Queryable<TripAtStop, Schedule> for DBInterface {}
+/// type `TripCross` that contains additional informations about departure of trip and arrival at
+/// stop.
+impl Queryable<TripCross, Schedule> for DBInterface {}
 
 #[derive(Deserialize)]
 struct CountResult {
