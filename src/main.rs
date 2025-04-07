@@ -32,8 +32,8 @@ fn rocket() -> _ {
         .mount("/api/v1/map/area", routes::map::area::ROUTES.clone())
         .mount("/api/v1/map/route", routes::map::route::ROUTES.clone())
         .mount("/api/v1/map/stop", routes::map::stop::ROUTES.clone())
-        .mount("/api/v1/map/paths", routes::map::path::ROUTES.clone())
-        .mount("/api/v1/map/segments", routes::map::segment::ROUTES.clone())
+        .mount("/api/v1/map/path", routes::map::path::ROUTES.clone())
+        .mount("/api/v1/map/segment", routes::map::segment::ROUTES.clone())
         .mount("/api/v1/map/trip", routes::map::trip::ROUTES.clone())
             // routes::map::,
             // routes::map::get_route_opt,
