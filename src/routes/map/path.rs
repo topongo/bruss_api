@@ -7,8 +7,8 @@ use rocket_db_pools::Connection;
 use super::{pipeline::Pipeline, query::{DBInterface, UniformQueryable}};
 
 #[get("/<paths>")]
-pub async fn get<'a>(db: Connection<BrussData>, paths: &'a str) -> ApiResponse<Vec<Path>> {
-    UniformQueryable::<Path>::query(&DBInterface(db), Pipeline::from(doc!{"id": {"$in": paths.split(",").collect::<Vec<&'a str>>()}})).await.into()
+pub async fn get(db: Connection<BrussData>, paths: &str) -> ApiResponse<Vec<Path>> {
+    UniformQueryable::<Path>::query(&DBInterface(db), Pipeline::from(doc!{"id": {"$in": paths.split(",").collect::<Vec<&str>>()}})).await.into()
 }
 
 lazy_static!{

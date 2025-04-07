@@ -150,31 +150,6 @@ impl MultiTripQuery {
         let project_stage = doc!{"$project": {"_id": 0,"trip": 1,"departure": 1, "arrival_at_stop": 1}};
         let count_stage = doc!{"$count": "count"};
 
-
-        // vec![
-        //     doc!{"$match": {"$and": [
-        //         // filter by area
-        //         {"hints.type": area.to_string()}, 
-        //         // filter by stop, if present in hits.times
-        //         {&stop_time_string[1..slen - 3]: {"$exists": true}}, 
-        //     ]}}, 
-        //     // calculate arrival at stop
-        //     doc!{"$set": {"arrival_at_stop": {"$add": ["$departure", {"$multiply": [1000, {"$arrayElemAt": [&stop_time_string[0..slen - 3], 0]}]}]}}},
-        //     // filter by arrival at stop
-        //     doc!{"$match": {"arrival_at_stop": {"$gte": time}}},
-        //     // sort by arrival at specific stop: we can't simply sort by general departure.
-        //     doc!{"$sort": {"arrival_at_stop": 1}},
-        //     // lookup trip
-        //     doc!{"$lookup": {"from": "trips","localField": "id","foreignField": "id","as": "trip"}},
-        //     // strip $lookup result
-        //     doc!{"$unwind": "$trip"}, 
-        //     // hard limit results
-        //     doc!{"$limit": 100},
-        //     // project only the necessary fields
-        //     doc!{"$project": {"_id": 0,"trip": 1,"departure": 1}},
-        //     // doc!{"$set": {"arrival_at_stop": }}
-        // ]
-        
         let count = vec![
             match_stage.clone(),
             heuristic_match_stage.clone(),
