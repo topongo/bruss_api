@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use std::time::Duration;
 
 use bruss_config::CONFIGS;
@@ -12,6 +13,7 @@ use rocket::request::FromParam;
 use rocket_db_pools::Connection;
 use serde::{Serialize,Deserialize};
 use mongodb::bson::{doc, Document};
+use tokio::task::JoinHandle;
 use tt::{AreaType, TTTrip};
 use crate::{db::BrussData, response::ApiResponse, routes::map::query::{DBInterface, DBQuery}};
 
@@ -79,6 +81,41 @@ struct TripUpdate {
     updated: DateTime<Utc>,
 }
 
+struct ParallelRequester {
+    cli: Arc<tt::TTClient>,
+    ids: Vec<String>,
+    sem: Arc<tokio::sync::Semaphore>,
+}
+
+impl ParallelRequester {
+    fn new(cli: tt::TTClient, ids: Vec<String>) -> Self {
+        Self {
+            cli: cli.into(),
+            ids,
+            sem: tokio::sync::Semaphore::new(CONFIGS.routing.parallel_downloads.unwrap_or(1)).into(),
+        }
+    }
+
+    async fn request(self) -> Result<Vec<Trip>, tt::TTError> {
+        let mut handles: Vec<JoinHandle<Result<Trip, tt::TTError>>> = vec![];
+        for id in self.ids {
+            let cli = self.cli.clone();
+            let sem = self.sem.clone();
+            handles.push(tokio::spawn(async move {
+                let _permit = sem.acquire().await.unwrap();
+                Ok(Trip::from_tt(cli.request_one::<TTTrip>(id).await?).0)
+            }));
+        }
+
+        let mut results = vec![]; 
+        for handle in handles {
+            let t = handle.await.unwrap()?;
+            results.push(t);
+        }
+        Ok(results)
+    }
+}
+
 impl TripUpdate {
     async fn fetch_from_tt(cli: &tt::TTClient, id: String) -> Result<Trip, tt::TTError> {
         Ok(Trip::from_tt(cli.request_one::<TTTrip>(id).await?).0)
@@ -99,17 +136,19 @@ impl TripUpdate {
             .await?;
 
         let cli = CONFIGS.tt.client();
-        let mut routes = HashSet::new();
-        let mut tt_updates = vec![];
-        for i in id.iter() {
-            if !cached.contains_key(i) {
-                let t = Self::fetch_from_tt(&cli, i.clone()).await.map_err(mongodb::error::Error::custom)?;
-                routes.insert(t.route);
-                tt_updates.push(t);
-            } else {
-                println!("item ttl: {}s", (cached[i].updated - now).num_seconds() + 30);
-            }
-        }
+        let id_len = id.len();
+        let to_fetch = id.into_iter()
+            .filter(|i| !cached.contains_key(i))
+            .map(|i| i.clone())
+            .collect::<Vec<_>>();
+
+        let tt_updates = ParallelRequester::new(cli, to_fetch)
+            .request()
+            .await
+            .map_err(mongodb::error::Error::custom)?;
+        let routes = tt_updates.iter()
+            .map(|t| t.route)
+            .collect::<HashSet<u16>>();
 
         // get needed routes (one usually) from db
         let areas: HashMap<u16, AreaType> = Route::get_coll(&db.0.database(CONFIGS.db.get_db()))
@@ -120,7 +159,7 @@ impl TripUpdate {
             .await?;
 
         let db_updates = tt_updates.into_iter()
-            .map(|t| TripTracking::from((areas[&t.route], t)))
+            .map(|t: Trip| TripTracking::from((areas[&t.route], t)))
             .map(|t| TripUpdate { tracking: t, updated: now })
             .collect::<Vec<_>>();
         
@@ -133,7 +172,7 @@ impl TripUpdate {
 
         let mut output = db_updates;
         output.extend(cached.into_values());
-        debug_assert_eq!(output.len(), id.len());
+        debug_assert_eq!(output.len(), id_len);
         Ok(output)
     }
 }
