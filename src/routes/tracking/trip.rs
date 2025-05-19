@@ -25,6 +25,7 @@ pub struct TripTracking {
     next_stop: Option<u16>,
     area: Option<AreaType>,
     bus_id: Option<u16>,
+    last_event: Option<DateTime<Utc>>,
 }
 
 impl TripTracking {
@@ -37,6 +38,7 @@ impl TripTracking {
             next_stop: None,
             area: None,
             bus_id: None,
+            last_event: None,
         }
     }
 }
@@ -51,6 +53,7 @@ impl From<(AreaType, Trip)> for TripTracking {
             next_stop: value.next_stop,
             area: Some(area),
             bus_id: value.bus_id,
+            last_event: value.last_event,
         }
     }
 }
