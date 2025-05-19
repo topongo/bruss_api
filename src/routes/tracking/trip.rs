@@ -128,7 +128,7 @@ impl TripUpdate {
         let coll = db.0.database(CONFIGS.db.get_db())
             .collection::<TripUpdate>("trip_updates");
         let cached: HashMap<String, TripUpdate> = coll
-            .find(doc!{"id": doc!{"$in": &id}, "updated": doc!{"$gt": (now - Duration::from_secs(30)).timestamp()}}, None)
+            .find(doc!{"id": doc!{"$in": &id}, "updated": doc!{"$gt": (now - Duration::from_secs(CONFIGS.api.max_rt_age)).timestamp()}}, None)
             .await?
             .map(|r| r.map(|d| (d.tracking.id.clone(), d)))
             .try_collect()
