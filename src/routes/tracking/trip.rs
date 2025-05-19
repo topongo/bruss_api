@@ -120,10 +120,6 @@ impl ParallelRequester {
 }
 
 impl TripUpdate {
-    async fn fetch_from_tt(cli: &tt::TTClient, id: String) -> Result<Trip, tt::TTError> {
-        Ok(Trip::from_tt(cli.request_one::<TTTrip>(id).await?).0)
-    }
-
     async fn get_by_ids(db: DBInterface, id: Vec<String>) -> Result<Vec<Self>, mongodb::error::Error> {
         let now = Utc::now();
         // sanitize id vec:
@@ -142,7 +138,6 @@ impl TripUpdate {
         let id_len = id.len();
         let to_fetch = id.into_iter()
             .filter(|i| !cached.contains_key(i))
-            .map(|i| i.clone())
             .collect::<Vec<_>>();
 
         let tt_updates = ParallelRequester::new(cli, to_fetch)
