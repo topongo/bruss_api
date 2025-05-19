@@ -21,8 +21,8 @@ use crate::{db::BrussData, response::ApiResponse, routes::map::query::{DBInterfa
 pub struct TripTracking {
     id: String,
     delay: i32,
-    last_stop: u16,
-    next_stop: u16,
+    last_stop: Option<u16>,
+    next_stop: Option<u16>,
     area: Option<AreaType>,
     bus_id: Option<u16>,
 }
@@ -33,8 +33,8 @@ impl TripTracking {
         Self {
             id,
             delay: 0,
-            last_stop: 0,
-            next_stop: 0,
+            last_stop: None,
+            next_stop: None,
             area: None,
             bus_id: None,
         }
