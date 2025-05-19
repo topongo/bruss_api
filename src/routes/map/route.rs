@@ -46,7 +46,6 @@ async fn get_trips(
     let pipeline = query?
         .into_inner()
         .into_pipeline_route(id as u16, skip, limit);
-    println!("Pipeline: {pipeline}");
 
     Queryable::<TripCross, Schedule>::query(&DBInterface(db), pipeline).await.into()
 }

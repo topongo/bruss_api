@@ -64,7 +64,6 @@ macro_rules! gen_generic_getters {
             limit: Option<u32>,
             skip: Option<u32>,
         ) -> crate::response::ApiResponse<Vec<$type>> {
-            println!("id: {:?}", query);
             super::query::UniformQueryable::<$type>::query(
                 &super::query::DBInterface(db), 
                 Pipeline::from(query?.into_inner())

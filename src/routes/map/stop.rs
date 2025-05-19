@@ -43,8 +43,6 @@ async fn get_trips(
         .into_inner()
         .into_pipeline_stop(id as u16, area_type?.value().into_inner(), skip, limit);
 
-    println!("Pipeline: {}", pipeline);
-
     Queryable::<TripCross, Schedule>::query(&DBInterface(db), pipeline).await.into()
 }
 
