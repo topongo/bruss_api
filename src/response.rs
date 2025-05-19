@@ -216,6 +216,7 @@ impl Serialize for ApiError {
             //     map.serialize_entry("uri", &uri)?;
             // },
             Self::InternalServer(e) => {
+                error!("internal server error generated: {}", e);
                 #[cfg(debug_assertions)]
                 map.serialize_entry("error_debug", &e.to_string())?;
             }
