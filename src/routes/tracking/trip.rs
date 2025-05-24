@@ -1,5 +1,4 @@
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 use std::time::Duration;
 
 use bruss_config::CONFIGS;
@@ -13,8 +12,7 @@ use rocket::request::FromParam;
 use rocket_db_pools::Connection;
 use serde::{Serialize,Deserialize};
 use mongodb::bson::{doc, Document};
-use tokio::task::JoinHandle;
-use tt::{AreaType, TTTrip};
+use tt::{AreaType, ParallelRequester, TTTrip};
 use crate::{db::BrussData, response::ApiResponse, routes::map::query::{DBInterface, DBQuery}};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -84,41 +82,6 @@ struct TripUpdate {
     updated: DateTime<Utc>,
 }
 
-struct ParallelRequester {
-    cli: Arc<tt::TTClient>,
-    ids: Vec<String>,
-    sem: Arc<tokio::sync::Semaphore>,
-}
-
-impl ParallelRequester {
-    fn new(cli: tt::TTClient, ids: Vec<String>) -> Self {
-        Self {
-            cli: cli.into(),
-            ids,
-            sem: tokio::sync::Semaphore::new(CONFIGS.routing.parallel_downloads.unwrap_or(1)).into(),
-        }
-    }
-
-    async fn request(self) -> Result<Vec<Trip>, tt::TTError> {
-        let mut handles: Vec<JoinHandle<Result<Trip, tt::TTError>>> = vec![];
-        for id in self.ids {
-            let cli = self.cli.clone();
-            let sem = self.sem.clone();
-            handles.push(tokio::spawn(async move {
-                let _permit = sem.acquire().await.unwrap();
-                Ok(Trip::from_tt(cli.request_one::<TTTrip>(id).await?).0)
-            }));
-        }
-
-        let mut results = vec![]; 
-        for handle in handles {
-            let t = handle.await.unwrap()?;
-            results.push(t);
-        }
-        Ok(results)
-    }
-}
-
 impl TripUpdate {
     async fn get_by_ids(db: DBInterface, id: Vec<String>) -> Result<Vec<Self>, mongodb::error::Error> {
         let now = Utc::now();
@@ -136,14 +99,21 @@ impl TripUpdate {
 
         let cli = CONFIGS.tt.client();
         let id_len = id.len();
-        let to_fetch = id.into_iter()
+        let p_requester = ParallelRequester::<TTTrip>::new(cli, CONFIGS.routing.parallel_downloads.unwrap_or(1));
+        for i in id.into_iter()
             .filter(|i| !cached.contains_key(i))
-            .collect::<Vec<_>>();
+        {
+            p_requester.request_one(i).await
+        }
 
-        let tt_updates = ParallelRequester::new(cli, to_fetch)
-            .request()
-            .await
-            .map_err(mongodb::error::Error::custom)?;
+
+        let tt_updates = p_requester.gather().await
+            .map_err(mongodb::error::Error::custom)?
+            .into_iter()
+            .map(Trip::from_tt)
+            .map(|v| v.0)
+            .collect::<Vec<Trip>>();
+
         let routes = tt_updates.iter()
             .map(|t| t.route)
             .collect::<HashSet<u16>>();
