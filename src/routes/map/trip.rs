@@ -1,8 +1,7 @@
 use bruss_data::{Direction, Trip};
-use chrono::{DateTime, Local, NaiveTime, TimeDelta, Utc};
+use chrono::{DateTime, Local, TimeDelta, Utc};
 use lazy_static::lazy_static;
 use rocket::form::FromForm;
-use rocket::time::Time;
 use serde::{Deserialize, Serialize};
 use tt::AreaType;
 use mongodb::bson::{doc, Document};
@@ -11,9 +10,44 @@ use super::pipeline::{CustomPipeline, Pipeline};
 
 use super::{gen_generic_getters, FromStringFormField};
 
+struct ParsableTime(DateTime<Utc>);
+
+impl From<ParsableTime> for DateTime<Utc> {
+    fn from(value: ParsableTime) -> Self {
+        value.0
+    }
+}
+ #[rocket::async_trait]
+impl<'r> rocket::form::FromFormField<'r> for ParsableTime {
+    fn from_value(field: rocket::form::ValueField<'r>) -> rocket::form::Result<'r, Self> {
+        let time_str = field.value.trim();
+        if time_str.is_empty() {
+            return Err(rocket::form::Error::validation("Time cannot be empty").into());
+        }
+
+        match chrono::DateTime::parse_from_rfc3339(time_str) {
+            Ok(dt) => Ok(ParsableTime(dt.with_timezone(&chrono::Utc))),
+            Err(e) => {
+                // try parsing hh:mm(:ss) format
+                chrono::NaiveTime::parse_from_str(time_str, "%H:%M:%S")
+                    .or_else(|_| chrono::NaiveTime::parse_from_str(time_str, "%H:%M"))
+                    .map(|nt| {
+                        let dt = Local::now().with_time(nt).unwrap();
+                        ParsableTime(dt.to_utc())
+                    })
+                    .map_err(|_| rocket::form::Error::validation(format!("failed to parse time: {}", e)).into())
+            }
+        }
+    }
+
+    async fn from_data(_field: rocket::form::DataField<'r, '_>) -> rocket::form::Result<'r, Self> {
+        todo!("parse from a value or use default impl")
+    }
+}
+
 #[derive(FromForm)]
 pub struct MultiTripQuery {
-    time: Option<Time>,
+    time: Option<ParsableTime>,
     direction: Option<FromStringFormField<Direction>>,
 }
 
@@ -56,7 +90,7 @@ impl MultiTripQuery {
     pub fn into_pipeline_route(self, route: u16, skip: Option<u32>, limit: Option<u32>) -> CustomPipeline {
         let Self { time, direction } = self;
         let time = match time {
-            Some(t) => rocket_time_to_chrono_utc(t),
+            Some(t) => t.into(),
             None => Utc::now(),
         };
 
@@ -110,7 +144,7 @@ impl MultiTripQuery {
         let Self { time, direction } = self;
 
         let time = match time {
-            Some(t) => rocket_time_to_chrono_utc(t),
+            Some(t) => t.into(),
             None => Utc::now(),
         };
 
