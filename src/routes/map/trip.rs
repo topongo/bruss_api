@@ -58,7 +58,7 @@ pub struct TripQuerySingle {
 
 impl DBQuery for TripQuerySingle {
     fn to_doc(self) -> Document {
-        let Self { id } = self;        
+        let Self { id } = self;
         doc!{"id": id}
     }
 }
@@ -74,18 +74,6 @@ pub struct TripCross {
 #[derive(Serialize, Deserialize)]
 struct DateTimeUtcWrapper(#[serde(deserialize_with = "bson::serde_helpers::deserialize_chrono_datetime_from_bson_datetime")] DateTime<Utc>);
 
-fn rocket_time_to_chrono_utc(time: Time) -> chrono::DateTime<Utc> {
-    DateTime::<Utc>::from(
-        Local::now().with_time(
-            NaiveTime::from_hms_opt(
-                time.hour().into(), 
-                time.minute().into(),
-                time.second().into()
-            ).unwrap()
-        ).unwrap()
-    )
-}
-
 impl MultiTripQuery {
     pub fn into_pipeline_route(self, route: u16, skip: Option<u32>, limit: Option<u32>) -> CustomPipeline {
         let Self { time, direction } = self;
@@ -97,7 +85,7 @@ impl MultiTripQuery {
         let mut conds = vec![doc!{"hints.route": route as i32}];
         conds.push(doc!{"$expr": {"$lte": [
                 // check that the current time is lower than...
-                time, 
+                time,
                 // the general arrival time of the trip
                 "$arrival",
         ]}});
@@ -125,7 +113,7 @@ impl MultiTripQuery {
             match_stage.clone(),
             count_stage,
         ];
-        
+
         // include all stages except for the count stage
         let fetch = vec![
             match_stage,
@@ -202,14 +190,6 @@ impl MultiTripQuery {
 
         Pipeline::custom(fetch, count)
     }
-    
-    // pub fn to_doc_route(self, route: u16) -> Document {
-    //     let Self { id } = self;
-    //     let mut d = Document::new();
-    //     d.insert("route", route as i32);
-    //     if let Some(id) = id { d.insert("id", id.clone()); }
-    //     d 
-    // }
 }
 
 
